@@ -1,7 +1,7 @@
 "use strict";
 
-// Shared spin-up logic, used by both the actions (spinup.js) and the popup
-// picker (picker.js) so there is one definition of how a tool gets launched.
+// Shared by picker.js, tab-event.js and tab-title.js: reading tools.toml, and
+// calling the herdr CLI (which is the whole plugin API).
 
 const { spawnSync } = require("node:child_process");
 
@@ -124,13 +124,7 @@ function loadTools() {
   return tools;
 }
 
-function toolIds() {
-  return loadTools().map((t) => t.id);
-}
 
-function findTool(id) {
-  return loadTools().find((t) => t.id === id) || null;
-}
 
 function herdr(args) {
   const r = spawnSync(HERDR, args, { encoding: "utf8" });
@@ -157,6 +151,4 @@ function herdr(args) {
   return parsed.result;
 }
 
-const STATE_DIR = process.env.HERDR_PLUGIN_STATE_DIR || "/tmp";
-
-module.exports = { HERDR, PLUGIN_ID, STATE_DIR, loadTools, toolIds, findTool, toolsPath, herdr };
+module.exports = { loadTools, herdr };

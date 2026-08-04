@@ -14,6 +14,7 @@
 const lib = require("./lib.js");
 
 const ROOT = process.env.HERDR_PLUGIN_ROOT || __dirname;
+const STATE_DIR = process.env.HERDR_PLUGIN_STATE_DIR || "/tmp";
 
 function sleep(ms) {
   const shared = new Int32Array(new SharedArrayBuffer(4));
@@ -67,15 +68,21 @@ function main() {
 try {
   main();
 } catch (err) {
-  // Must never disrupt opening a tab — but a silent failure is invisible here,
-  // since event hooks report only an exit code.
-  try {
-    require("node:fs").appendFileSync(
-      `${lib.STATE_DIR}/tab-event-error.log`,
-      `${new Date().toISOString()} ${err && err.stack ? err.stack : err}\n`,
-    );
-  } catch {
-    // nothing left to try
+  // Closing a brand-new tab before the menu starts is an ordinary race, not a
+  // fault: the pane is gone and there is nothing left to run.
+  const raced = /pane_not_found|tab_not_found/.test((err && err.message) || "");
+
+  // Anything else must never disrupt opening a tab, but must not vanish either:
+  // event hooks report only an exit code, so unexpected failures go to a file.
+  if (!raced) {
+    try {
+      require("node:fs").appendFileSync(
+        `${STATE_DIR}/tab-event-error.log`,
+        `${new Date().toISOString()} ${err && err.stack ? err.stack : err}\n`,
+      );
+    } catch {
+      // nothing left to try
+    }
   }
 }
 process.exit(0);
