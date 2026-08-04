@@ -35,7 +35,7 @@ Tools are yours to define — the four above are just defaults. Edit the copy se
 config directory:
 
 ```bash
-$EDITOR "$(herdr plugin config-dir srujan.spinup)/tools.toml"
+$EDITOR "$(herdr plugin config-dir royal-lobster.spinup)/tools.toml"
 ```
 
 ```toml
@@ -70,8 +70,8 @@ The plugin also declares `prefix+space` (menu) and `prefix+shift+s` (start every
 CLI entry points:
 
 ```bash
-herdr plugin action invoke srujan.spinup.picker
-herdr plugin action invoke srujan.spinup.all
+herdr plugin action invoke royal-lobster.spinup.picker
+herdr plugin action invoke royal-lobster.spinup.all
 ```
 
 ### Keybindings do not work from a remote client
@@ -97,7 +97,7 @@ Workarounds, in order of preference:
 1. **Use the new-tab trigger.** Events are raised and handled entirely on the server, so this
    path is unaffected. This is why it's the recommended trigger.
 2. **Bind a hotkey outside herdr** (Raycast, skhd, Karabiner) to
-   `ssh -n host /path/to/herdr plugin action invoke srujan.spinup.picker`. A multiplexed SSH
+   `ssh -n host /path/to/herdr plugin action invoke royal-lobster.spinup.picker`. A multiplexed SSH
    round trip is ~0.2s, and it works whether or not herdr is focused.
 
 ## Behaviour
@@ -162,7 +162,7 @@ Things that cost real time to work out, in case they save you some:
 
 ```bash
 herdr plugin link /path/to/herdr-spinup
-herdr plugin log list --plugin srujan.spinup
+herdr plugin log list --plugin royal-lobster.spinup
 ```
 
 Plain JavaScript on Node, no dependencies and no build step — the herdr CLI emits JSON for

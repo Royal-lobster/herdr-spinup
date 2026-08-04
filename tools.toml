@@ -2,7 +2,7 @@
 # that copy, not this file (a GitHub-installed plugin is a managed checkout and
 # your changes here would be lost on update). Find it with:
 #
-#   herdr plugin config-dir srujan.spinup
+#   herdr plugin config-dir royal-lobster.spinup
 #
 # Each entry becomes a row in the picker and opens in its own tab.
 #

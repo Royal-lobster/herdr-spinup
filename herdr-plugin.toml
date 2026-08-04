@@ -1,4 +1,4 @@
-id = "srujan.spinup"
+id = "royal-lobster.spinup"
 name = "Spinup"
 version = "0.2.0"
 min_herdr_version = "0.8.0"
@@ -77,11 +77,11 @@ command = ["sh", "-c", 'exec node "$HERDR_PLUGIN_ROOT/tab-event.js"']
 [[keys.command]]
 key = "prefix+space"
 type = "plugin_action"
-command = "srujan.spinup.picker"
+command = "royal-lobster.spinup.picker"
 description = "spinup menu"
 
 [[keys.command]]
 key = "prefix+shift+s"
 type = "plugin_action"
-command = "srujan.spinup.all"
+command = "royal-lobster.spinup.all"
 description = "spinup every tool"

@@ -6,7 +6,7 @@
 const { spawnSync } = require("node:child_process");
 
 const HERDR = process.env.HERDR_BIN_PATH || "herdr";
-const PLUGIN_ID = process.env.HERDR_PLUGIN_ID || "srujan.spinup";
+const PLUGIN_ID = process.env.HERDR_PLUGIN_ID || "royal-lobster.spinup";
 
 const fs = require("node:fs");
 
