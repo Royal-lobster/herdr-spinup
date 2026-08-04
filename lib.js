@@ -8,15 +8,129 @@ const { spawnSync } = require("node:child_process");
 const HERDR = process.env.HERDR_BIN_PATH || "herdr";
 const PLUGIN_ID = process.env.HERDR_PLUGIN_ID || "srujan.spinup";
 
-// Keys match the [[panes]] entrypoint ids and the [[actions]] ids.
-const TOOLS = ["fresh", "tuicr", "cc", "cdx"];
+const fs = require("node:fs");
 
-const TOOL_DESC = {
-  fresh: "editor",
-  tuicr: "review",
-  cc: "claude",
-  cdx: "codex",
-};
+// Just enough TOML for tools.toml: comments, [[tools]] array-of-tables, and
+// scalar `key = value`. Deliberately not a general parser — pulling in a
+// dependency would mean a build step for a file this simple.
+function parseToolsToml(text) {
+  const tools = [];
+  let cur = null;
+
+  for (const raw of text.split(/\r?\n/)) {
+    // Strip comments, but not a # inside a quoted value.
+    let line = "";
+    let quote = null;
+    for (const ch of raw) {
+      if (quote) {
+        if (ch === quote) quote = null;
+      } else if (ch === '"' || ch === "'") {
+        quote = ch;
+      } else if (ch === "#") {
+        break;
+      }
+      line += ch;
+    }
+    line = line.trim();
+    if (!line) continue;
+
+    if (line === "[[tools]]") {
+      cur = {};
+      tools.push(cur);
+      continue;
+    }
+    if (line.startsWith("[")) {
+      cur = null; // some other table; ignore its keys
+      continue;
+    }
+    if (!cur) continue;
+
+    const eq = line.indexOf("=");
+    if (eq < 0) continue;
+    const key = line.slice(0, eq).trim();
+    let val = line.slice(eq + 1).trim();
+
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      val = val.slice(1, -1);
+    } else if (val === "true" || val === "false") {
+      val = val === "true";
+    } else if (val !== "" && !Number.isNaN(Number(val))) {
+      val = Number(val);
+    }
+    cur[key] = val;
+  }
+
+  return tools;
+}
+
+function normaliseTools(raw) {
+  const seen = new Set();
+  const out = [];
+  for (const t of raw) {
+    const id = typeof t.id === "string" ? t.id.trim() : "";
+    const command = typeof t.command === "string" ? t.command.trim() : "";
+    if (!id || !command || seen.has(id)) continue; // a broken entry is skipped, not fatal
+    seen.add(id);
+    out.push({
+      id,
+      command,
+      label: (typeof t.label === "string" && t.label.trim()) || id,
+      desc: typeof t.desc === "string" ? t.desc : "",
+      key: typeof t.key === "string" && t.key.length === 1 ? t.key : "",
+    });
+  }
+  return out;
+}
+
+const BUNDLED_TOOLS = `${__dirname}/tools.toml`;
+
+// User config lives in HERDR_PLUGIN_CONFIG_DIR, which herdr keeps outside the
+// plugin checkout so it survives updates. Seed it from the bundled copy on first
+// run so there's something to edit.
+function toolsPath() {
+  const dir = process.env.HERDR_PLUGIN_CONFIG_DIR;
+  if (!dir) return BUNDLED_TOOLS;
+  const p = `${dir}/tools.toml`;
+  try {
+    if (!fs.existsSync(p)) {
+      fs.mkdirSync(dir, { recursive: true });
+      fs.copyFileSync(BUNDLED_TOOLS, p);
+    }
+    return p;
+  } catch {
+    return BUNDLED_TOOLS;
+  }
+}
+
+let toolsCache = null;
+
+function loadTools() {
+  if (toolsCache) return toolsCache;
+  let tools = [];
+  try {
+    tools = normaliseTools(parseToolsToml(fs.readFileSync(toolsPath(), "utf8")));
+  } catch {
+    tools = [];
+  }
+  if (!tools.length) {
+    // Never leave the picker empty because of a bad edit.
+    try {
+      tools = normaliseTools(parseToolsToml(fs.readFileSync(BUNDLED_TOOLS, "utf8")));
+    } catch {
+      tools = [];
+    }
+  }
+  toolsCache = tools;
+  return tools;
+}
+
+function toolIds() {
+  return loadTools().map((t) => t.id);
+}
+
+function findTool(id) {
+  return loadTools().find((t) => t.id === id) || null;
+}
 
 function herdr(args) {
   const r = spawnSync(HERDR, args, { encoding: "utf8" });
@@ -84,39 +198,57 @@ function findExisting(tool, ctx) {
 }
 
 function runningTools(ctx) {
+  const ids = toolIds();
   const panes = herdr(["pane", "list"]).panes || [];
   const live = new Set();
   for (const p of panes) {
     if (p.workspace_id !== ctx.workspaceId) continue;
     if (p.cwd !== ctx.cwd && p.foreground_cwd !== ctx.cwd) continue;
-    if (TOOLS.includes(p.label)) live.add(p.label);
+    if (ids.includes(p.label)) live.add(p.label);
   }
   return live;
 }
 
-function spinUp(tool, ctx) {
-  const existing = findExisting(tool, ctx);
-  if (existing) return { tool, status: "reused", tabId: existing.tab_id };
+// Tools all go through the single `runner` entrypoint, with the command handed
+// over in SPINUP_CMD. Per-tool [[panes]] entries would mean editing the manifest
+// for every tool, and the manifest is a managed checkout for an installed plugin —
+// user-defined tools have to work without touching it. The runner is
+// `sh -c 'exec $SPINUP_CMD'`, so the tool replaces the shell and herdr's
+// process-name agent detection sees it exactly as if it were launched directly.
+function spinUp(id, ctx) {
+  const tool = findTool(id);
+  if (!tool) throw new Error(`unknown tool "${id}" — check tools.toml`);
+
+  const existing = findExisting(id, ctx);
+  if (existing) return { tool: id, status: "reused", tabId: existing.tab_id };
 
   const opened = herdr([
     "plugin", "pane", "open",
     "--plugin", PLUGIN_ID,
-    "--entrypoint", tool,
+    "--entrypoint", "runner",
     "--placement", "tab",
     "--cwd", ctx.cwd,
+    "--env", `SPINUP_CMD=${tool.command}`,
     "--no-focus",
   ]);
   const pane = opened.plugin_pane.pane;
 
-  // Opening a plugin pane leaves the tab showing its number; the pane label
-  // alone isn't visible in the tab bar.
+  // The pane label is how a running tool is found again later, and every tool now
+  // shares one entrypoint (so they'd all be labelled "runner"). Set it explicitly.
+  // The tab label is separate: it's what shows in the tab bar, and the
+  // first-prompt hook may later rewrite it.
   try {
-    herdr(["tab", "rename", pane.tab_id, tool]);
+    herdr(["pane", "rename", pane.pane_id, id]);
+  } catch {
+    // reuse detection degrades to starting a second copy; not fatal
+  }
+  try {
+    herdr(["tab", "rename", pane.tab_id, tool.label]);
   } catch {
     // cosmetic only
   }
 
-  return { tool, status: "started", tabId: pane.tab_id };
+  return { tool: id, status: "started", tabId: pane.tab_id };
 }
 
 // The tab.created event hook opens the picker — but the tool tabs this plugin
@@ -202,7 +334,8 @@ function spinUpAll(wanted, ctx) {
 }
 
 module.exports = {
-  HERDR, PLUGIN_ID, TOOLS, TOOL_DESC, STATE_DIR,
+  HERDR, PLUGIN_ID, STATE_DIR,
+  loadTools, toolIds, findTool, toolsPath,
   herdr, resolveContext, findExisting, runningTools, spinUp, spinUpAll, notify,
   suppressTabEvents, tabEventsSuppressed, releaseTabEvents,
 };

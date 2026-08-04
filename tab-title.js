@@ -15,15 +15,24 @@ const { spawnSync } = require("node:child_process");
 const HERDR = process.env.HERDR_BIN_PATH || "herdr";
 const MAX_LEN = 28;
 
-// Labels we're willing to overwrite. Anything else is either already derived
-// from a first prompt or was named by hand, and is left alone — which is also
-// what limits this to the *first* message of a session.
-const TOOL_LABELS = new Set(["fresh", "tuicr", "cc", "cdx"]);
+// Labels we're willing to overwrite: a bare tab number, or a tool's own label.
+// Anything else was either already derived from a first prompt or named by hand,
+// and is left alone — which is what limits this to the *first* message.
+//
+// Loaded from tools.toml, but this also runs as a Claude/Codex hook where the
+// plugin env vars are absent, so a failure here just means fewer labels qualify.
+function toolLabels() {
+  try {
+    return new Set(require("./lib.js").loadTools().map((t) => t.label));
+  } catch {
+    return new Set();
+  }
+}
 
 function isDefaultLabel(label) {
   if (!label) return true;
   if (/^\d+$/.test(label.trim())) return true;
-  return TOOL_LABELS.has(label.trim());
+  return toolLabels().has(label.trim());
 }
 
 // The two CLIs don't agree on where the prompt lives, and neither contract is

@@ -1,157 +1,173 @@
-# herdr-spinup
+# spinup
 
-Herdr plugin that spins up a working set of tools — one tab each — in the current directory:
+A start-screen launcher for [herdr](https://herdr.dev). Make a new tab, pick a tool, and it
+opens in its own tab in the current directory.
 
-| Tool    | Tab     | Command                          |
-| ------- | ------- | -------------------------------- |
-| `fresh` | `fresh` | TUI editor                       |
-| `tuicr` | `tuicr` | code review                      |
-| `cc`    | `cc`    | `claude --permission-mode auto`  |
-| `cdx`   | `cdx`   | `codex --yolo`                   |
+```
+                    ███████╗██████╗ ██╗███╗   ██╗██╗   ██╗██████╗
+                    ██╔════╝██╔══██╗██║████╗  ██║██║   ██║██╔══██╗
+                    ███████╗██████╔╝██║██╔██╗ ██║██║   ██║██████╔╝
+                    ╚════██║██╔═══╝ ██║██║╚██╗██║██║   ██║██╔═══╝
+                    ███████║██║     ██║██║ ╚████║╚██████╔╝██║
+                    ╚══════╝╚═╝     ╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚═╝
 
-## Keys
+                    ~/code/my-project
 
-**Keybindings are client-side.** The plugin is installed on the machine running the
-herdr *server* (forge), but keys are read by the *client* — so when driving forge from
-another machine with `herdr --remote forge`, the `[[keys.command]]` blocks in this
-manifest never fire. They have to be declared in the **client's**
-`~/.config/herdr/config.toml`.
+                     ❯ 1    fresh                      editor
+                       2    tuicr                      review
+                       3  ✓ cc                         claude
+                       4    cdx                         codex
 
-`type = "plugin_action"` does **not** work from such a client: it resolves against the
-*local* plugin registry, and a remote client has none (`herdr plugin list` → "No plugins
-installed", no local server). The binding is silently dropped — no error, and nothing
-reaches the server's plugin log. Use `type = "shell"` and invoke the action on the server
-over SSH instead; it runs detached, and a multiplexed round trip is ~0.2s:
-
-```toml
-[[keys.command]]
-key = "prefix+space"
-type = "shell"
-command = 'ssh -n forge "~/.local/bin/herdr plugin action invoke srujan.spinup.picker"'
-description = "spinup menu"
+                       click · ↑↓ · 1234 · esc
 ```
 
-The absolute path matters — a non-interactive SSH shell doesn't have `herdr` on `PATH`.
-The action still resolves the workspace and cwd from the *focused* pane on the server, so
-tools land in whatever project you're looking at.
-
-Bindings live in rover's config (prefix there is Hyper+J, `cmd+ctrl+alt+shift+j`):
-
-| Key                | Action               |
-| ------------------ | -------------------- |
-| `prefix + space`   | open the picker menu |
-| `prefix + shift+s` | all four             |
-| `prefix + shift+e` | `fresh`              |
-| `prefix + shift+v` | `tuicr`              |
-| `prefix + shift+c` | `cc`                 |
-| `prefix + shift+y` | `cdx`                |
-
-Run `herdr config check` after editing — it reports collisions with built-in bindings
-that aren't listed in the config file, and herdr silently keeps the built-in and disables
-yours. `prefix+e/r/c/d` are already `edit_scrollback`, `resize_mode`, `copy_mode` and
-`close_workspace`; `prefix+shift+t` is `rename_tab`.
-
-The manifest's own keybindings are kept for the case where the client runs on the same
-machine as the server.
-
-Or from the CLI:
+## Install
 
 ```bash
-herdr plugin action invoke srujan.spinup.all
-herdr plugin action invoke srujan.spinup.cc
+herdr plugin install srujangurram/herdr-spinup
 ```
 
-## New tabs
+Requires `node` on the machine running the herdr **server**. No build step.
 
-A `tab.created` event hook opens the picker whenever you make a new tab, so "new tab"
-becomes "new tab, running something". Pick a tool and the now-redundant empty tab closes
-itself; press `esc` and it stays exactly as it was.
+## Your tools
 
-Herdr's own built-in "new tab" dialog can't be extended — plugins get actions, panes,
-events, link handlers and keybindings, and none of them reach native UI. This hook is the
-closest equivalent. Because that dialog is session-modal and blocks plugin popups, the
-handler retries for ~8s and the picker appears once you dismiss it.
+Tools are yours to define — the four above are just defaults. Edit the copy seeded in your
+config directory:
 
-The tabs this plugin opens are new tabs too, so they re-fire the hook. A time-boxed
-marker file (`$HERDR_PLUGIN_STATE_DIR/suppress-tab-events`) is what stops the recursion —
-tab labels can't do it, because the event fires before the tab is renamed.
+```bash
+$EDITOR "$(herdr plugin config-dir srujan.spinup)/tools.toml"
+```
 
-## The picker
+```toml
+[[tools]]
+id = "fresh"          # required, unique. Identifies the pane so a running tool is reused.
+command = "fresh"     # required. A shell command line — quoting and flags work as usual.
+desc = "editor"       # optional. Dim text on the right.
+label = "fresh"       # optional, defaults to id. Shown in the picker and as the tab name.
+key = "e"             # optional single-character shortcut. Defaults to the row number.
+```
 
-`prefix + space` opens a popup menu — click an entry with the mouse, or use `↑↓`/`jk`,
-`1`-`4`, `enter`. `esc` or `q` dismisses it. Tools already running in the current
-directory are dimmed and marked `✓`. Launching all four is `prefix + S`, not a menu row.
+Two things to know:
 
-This exists because **herdr has no button surface**. A plugin action can only be fired
-by a keybinding, the CLI, a ctrl+clicked link, or an event hook — there is no command
-palette, menu or toolbar. A popup pane is the one place a plugin can draw its own UI,
-and popups receive forwarded mouse events, so it is genuinely clickable.
+- **Shell aliases don't exist here.** Name the real binary — `command = "claude --permission-mode auto"`,
+  not `cc`.
+- A malformed entry is skipped rather than fatal, and if the whole file fails to parse the
+  bundled defaults are used, so a bad edit can't leave you with an empty menu.
 
-The picker is an **overlay** pane, not a `popup`. Popups look like the obvious fit and are
-worse in every way that matters:
+## Triggering it
 
-| | `popup` | `overlay` |
-| --- | --- | --- |
-| more than one at a time | no — `popup already open` | fine |
-| in `pane list` / `api snapshot` | no | yes |
-| gets `HERDR_PANE_ID` | no | yes |
-| closable via `plugin pane close` | nothing to target | yes |
-| position | centred on the whole window, so off-centre whenever the sidebar is open | fills the active pane |
+**Make a new tab.** That's the launcher — no keybinding involved.
 
-`width`/`height` are only accepted for `popup`, and are rejected outright for anything
-else. The singleton rule is the nastiest part: it silently blocks the picker from opening
-while any other popup — including herdr's own "new tab" dialog — is up.
+To skip herdr's "name this tab" dialog on the way, set this in the config of whichever
+herdr reads your UI settings:
 
-Placement is declared here in the manifest and deliberately *not* passed on the
-`plugin pane open` calls, so there's one source of truth. The picker draws no border of its
-own, since herdr already frames and titles a plugin pane.
+```toml
+[ui]
+prompt_new_tab_name = false
+```
+
+The plugin also declares `prefix+space` (menu) and `prefix+shift+s` (start everything), plus
+CLI entry points:
+
+```bash
+herdr plugin action invoke srujan.spinup.picker
+herdr plugin action invoke srujan.spinup.all
+```
+
+### Keybindings do not work from a remote client
+
+If you drive a remote server (`herdr --remote host`), the manifest's keybindings will never
+fire, and neither will a `type = "plugin_action"` binding in your client's config. Keys are
+read by the *client*, and a remote client has **no local plugin registry and no local
+server** — so it can neither resolve a plugin action nor run one:
+
+```
+$ herdr plugin list                    # on the client
+No plugins installed.
+$ herdr plugin log list --plugin x
+server_not_running: no herdr server is running at …
+```
+
+The chord is dropped client-side and never reaches the server, silently — nothing appears in
+the server's plugin log. Installing the plugin on the client doesn't help either: the
+registry entry exists but there's no server to execute the action.
+
+Workarounds, in order of preference:
+
+1. **Use the new-tab trigger.** Events are raised and handled entirely on the server, so this
+   path is unaffected. This is why it's the recommended trigger.
+2. **Bind a hotkey outside herdr** (Raycast, skhd, Karabiner) to
+   `ssh -n host /path/to/herdr plugin action invoke srujan.spinup.picker`. A multiplexed SSH
+   round trip is ~0.2s, and it works whether or not herdr is focused.
 
 ## Behaviour
 
-- Tools launch in the cwd of the pane the action fired from.
-- A tool already running **in that same cwd** is focused instead of relaunched, so
-  repeated presses don't pile up tabs. Switching projects gets you a fresh set.
-- The action lands you on the first tool requested (`fresh` for `all`).
+- Tools launch in the cwd of the pane the trigger fired from.
+- A tool already running **in that same cwd** is focused instead of relaunched, so repeated
+  triggers don't pile up tabs. Switching projects gets you a fresh set. Running tools show
+  dimmed with a `✓`.
+- Picking a tool from a new tab closes that now-redundant empty tab. Pressing `esc` leaves it
+  alone.
 - One tool failing doesn't block the others; the summary toast names what failed.
 
 `tuicr` exits immediately outside a git/jj/hg repository — that's tuicr, not the plugin.
 
 ## Automatic tab titles
 
-`tab-title.js` is a `UserPromptSubmit` hook for both Claude Code and Codex. On the
-first prompt of a session it renames the enclosing Herdr tab to a short version of
-that prompt, so `cc` becomes `fix the flaky auth test…`.
+`tab-title.js` is a `UserPromptSubmit` hook for Claude Code and Codex. On the first prompt of
+a session it renames the enclosing herdr tab to a short version of that prompt, so `cc`
+becomes `fix the flaky auth test…`. Add to `~/.claude/settings.json` and/or
+`~/.codex/hooks.json`:
 
-It only overwrites labels that are still a bare tab number or a tool name, which is
-what limits it to the first message and keeps hand-named tabs safe. It writes nothing
-to stdout — for `UserPromptSubmit`, stdout is injected into the model's context.
-
-Wired into `~/.claude/settings.json` and `~/.codex/hooks.json`, alongside any hooks
-already there.
-
-## Install
-
-```bash
-herdr plugin link ~/Developer/Personal/herdr-spinup
+```json
+{ "type": "command", "command": "node \"/path/to/herdr-spinup/tab-title.js\"" }
 ```
 
-## Implementation note
+It only overwrites labels that are still a bare tab number or a tool name, which is what
+limits it to the first message and keeps hand-named tabs safe. It writes nothing to stdout —
+for `UserPromptSubmit`, stdout is injected into the model's context.
 
-Tabs are created via `[[panes]]` entrypoints and `herdr plugin pane open --placement tab`,
-**not** `tab create` + `pane run` / `agent start`. The latter looks equivalent but panes
-made that way aren't registered in the attached client's UI state: herdr logs
-`PaneDied for unknown pane` and SIGHUPs the agent the moment the client reconciles
-focus, so `cc`/`cdx` tabs vanish a few seconds after opening. Plugin-owned panes are
-persistent and survive focus. Agent detection is by process name, so `cc`/`cdx` still
-show up in the agent panel with full lifecycle status without `agent start`.
+## Notes for plugin authors
 
-The `cc`/`cdx` shell aliases don't exist in a plugin subprocess, so the manifest calls
-the real binaries with their flags.
+Things that cost real time to work out, in case they save you some:
 
-Two more sharp edges worth knowing:
+- **`[[panes]]` beats `tab create` + `agent start`.** Panes created through the plain socket
+  API aren't registered in the attached client's UI state: herdr logs `PaneDied for unknown
+  pane` and SIGHUPs the agent as soon as the client reconciles focus, so agent tabs vanish
+  seconds after opening. Plugin-owned panes are persistent.
+- **`overlay`, not `popup`,** for transient UI. A popup is a singleton — herdr's own "new tab"
+  dialog occupies the same slot and blocks yours with `popup already open` — is absent from
+  `pane list`/`api snapshot`, never receives `HERDR_PANE_ID`, and is centred against the whole
+  window so it sits off-centre when the sidebar is open. `width`/`height` are accepted only
+  for `popup`.
+- **Pane commands need `$HERDR_PLUGIN_ROOT`.** The plugin directory is the working directory
+  for *actions* only. A pane opened with an explicit `--cwd` runs there, so
+  `command = ["node", "picker.js"]` dies with `Cannot find module`.
+- **One entrypoint, command via `--env`.** `sh -c 'exec $SPINUP_CMD'` lets user-defined tools
+  work without editing the manifest — which matters because an installed plugin's manifest is
+  a managed checkout. `exec` keeps herdr's process-name agent detection working.
+- **Check the event payload, don't guess it.** `tab.created` carries
+  `data.tab.tab_id`; `tab.focused` carries only `data.tab_id` and `data.workspace_id` — no
+  label. Neither is documented field-by-field.
+- **`herdr` reports API failures in the payload**, as `{error:{code,message}}`. A response that
+  parses fine can still be a failure.
+- **Failures are silent by default.** Event hooks report only an exit code, pane commands have
+  no plugin log at all, and `type = "shell"` keybindings run detached. Log to a file while
+  developing.
+- **`herdr config check` validates syntax, not existence.** It flags unknown config keys and
+  keybinding collisions with built-ins (`prefix+e/r/c/d` are already taken), but happily
+  accepts a plugin action id that doesn't exist.
 
-- The plugin directory is the working directory for **actions** only. A pane opened with
-  an explicit `--cwd` runs *there*, so `command = ["node", "picker.js"]` fails with
-  `Cannot find module`. Pane commands must use `$HERDR_PLUGIN_ROOT`.
-- `herdr` reports API failures as an `{error:{code,message}}` payload. `lib.js` inspects
-  it, because a response that parses fine can still represent a failure.
+## Development
+
+```bash
+herdr plugin link /path/to/herdr-spinup
+herdr plugin log list --plugin srujan.spinup
+```
+
+Plain JavaScript on Node, no dependencies and no build step — the herdr CLI emits JSON for
+everything, which is the whole API surface this needs.
+
+## License
+
+MIT

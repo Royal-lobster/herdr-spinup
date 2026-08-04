@@ -29,7 +29,7 @@ function main() {
 
   const tab = tabFromEvent();
   // A tab already carrying a tool name is one of ours.
-  if (tab && lib.TOOLS.includes((tab.label || "").trim())) return;
+  if (tab && lib.toolIds().includes((tab.label || "").trim())) return;
 
   const ctx = lib.resolveContext();
   const args = [

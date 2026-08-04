@@ -37,10 +37,10 @@ function main() {
     process.exit(0);
   }
 
-  const wanted = actionId === "all" ? lib.TOOLS : [actionId];
+  const wanted = actionId === "all" ? lib.toolIds() : [actionId];
 
-  if (!wanted.every((t) => lib.TOOLS.includes(t))) {
-    console.error(`unknown action: ${actionId} (expected one of: all, ${lib.TOOLS.join(", ")})`);
+  if (!wanted.every((t) => lib.toolIds().includes(t))) {
+    console.error(`unknown action: ${actionId} (expected one of: all, ${lib.toolIds().join(", ")})`);
     process.exit(2);
   }
 

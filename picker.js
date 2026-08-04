@@ -12,9 +12,15 @@
 const { spawnSync } = require("node:child_process");
 const lib = require("./lib.js");
 
-// One row per tool. Launching all four stays on its own keybinding (prefix+S)
-// rather than taking up a row here.
-const ITEMS = lib.TOOLS.map((t) => ({ id: t, label: t, desc: lib.TOOL_DESC[t] }));
+// One row per tool, straight from tools.toml. Starting everything at once stays
+// on its own action rather than taking up a row here.
+const ITEMS = lib.loadTools();
+
+// Shortcut character per row: the tool's own `key` if it set one, else the row
+// number (so the first nine rows stay reachable without configuring anything).
+function shortcutFor(item, i) {
+  return item.key || (i < 9 ? String(i + 1) : "");
+}
 
 // A popup that dies takes its own error message with it — the pane closes
 // instantly and there is no plugin log for pane commands, only for actions. So
@@ -114,7 +120,7 @@ function compose(cols, rows) {
   ITEMS.forEach((item, i) => {
     const on = i === selected;
     const live = running.has(item.id);
-    const left = `${on ? "❯" : " "} ${i + 1}  ${live ? "✓" : " "} ${item.label}`;
+    const left = `${on ? "❯" : " "} ${shortcutFor(item, i) || " "}  ${live ? "✓" : " "} ${item.label}`;
     const right = item.desc || "";
     const pad = Math.max(1, w - [...left].length - [...right].length - 1);
     const text = ` ${left}${" ".repeat(pad)}${right}`;
@@ -125,7 +131,8 @@ function compose(cols, rows) {
   });
 
   block.push({ text: "" });
-  block.push({ text: `  click · ↑↓ · 1-${ITEMS.length} · esc`, style: "\x1b[2m" });
+  const keys = ITEMS.map(shortcutFor).filter(Boolean).join("");
+  block.push({ text: `  click · ↑↓${keys ? ` · ${keys}` : ""} · esc`, style: "\x1b[2m" });
 
   return { block, itemStart, w };
 }
@@ -302,14 +309,11 @@ function onData(buf) {
     const ch = pending[0];
     pending = pending.slice(1);
 
-    if (/^[1-9]$/.test(ch)) {
-      const i = Number(ch) - 1;
-      if (i < ITEMS.length) {
-        selected = i;
-        render();
-        return choose(i);
-      }
-      continue;
+    const hit = ITEMS.findIndex((item, i) => shortcutFor(item, i) === ch);
+    if (hit >= 0) {
+      selected = hit;
+      render();
+      return choose(hit);
     }
 
     switch (ch) {
