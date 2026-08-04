@@ -24,4 +24,4 @@ platforms = ["linux", "macos"]
 
 [[events]]
 on = "tab.created"
-command = ["sh", "-c", 'exec node "$HERDR_PLUGIN_ROOT/tab-event.js"']
+command = ["sh", "-c", 'exec node "$HERDR_PLUGIN_ROOT/src/tab-event.js"']

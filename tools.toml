@@ -4,7 +4,10 @@
 #
 #   herdr plugin config-dir royal-lobster.spinup
 #
-# Each entry becomes a row in the picker and opens in its own tab.
+# The banner above the menu is logo.txt in the same directory — any ASCII art will
+# do, and emptying the file hides it.
+#
+# Each entry becomes a row in the menu and runs in the tab you opened.
 #
 #   id       required, unique. Identifies the pane so a running tool is reused
 #            rather than started twice.

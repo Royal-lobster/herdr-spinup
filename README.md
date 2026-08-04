@@ -41,7 +41,7 @@ prompt_new_tab_name = false
 The four above are only defaults. Edit the copy seeded in your config directory:
 
 ```bash
-$EDITOR "$(herdr plugin config-dir royal-lobster.spinup)/tools.toml"
+cd "$(herdr plugin config-dir royal-lobster.spinup)"   # tools.toml and logo.txt
 ```
 
 ```toml
@@ -57,12 +57,16 @@ Shell **aliases don't exist here** — name the real binary. A malformed entry i
 if the whole file fails to parse the bundled defaults are used, so a bad edit can't leave you
 with an empty menu.
 
+The banner is `logo.txt` in the same directory. Any ASCII art will do; empty the file to hide
+it. Both files are seeded on first run and live outside the plugin checkout, so they survive
+updates.
+
 ## How it works
 
 One event hook, and that's the whole plugin:
 
 ```
-tab.created ──▶ pane run  sh -c 'CMD=$(node picker.js); [ -n "$CMD" ] && exec $CMD'
+tab.created ──▶ pane run  sh -c 'CMD=$(node src/picker.js); [ -n "$CMD" ] && exec $CMD'
                           │                              │
                           │ menu draws to /dev/tty        │ chosen command on stdout
                           └── esc → prints nothing ───────┴─▶ shell prompt
@@ -105,12 +109,12 @@ Things that cost real time to work out:
 
 ## Optional: name tabs after your first prompt
 
-`tab-title.js` is a `UserPromptSubmit` hook for Claude Code and Codex. On the first prompt of a
+`src/tab-title.js` is a `UserPromptSubmit` hook for Claude Code and Codex. On the first prompt of a
 session it renames the tab to a short version of it, so `cc` becomes `fix the flaky auth
 test…`. Add to `~/.claude/settings.json` and/or `~/.codex/hooks.json`:
 
 ```json
-{ "type": "command", "command": "node \"/path/to/herdr-spinup/tab-title.js\"" }
+{ "type": "command", "command": "node \"/path/to/herdr-spinup/src/tab-title.js\"" }
 ```
 
 It only overwrites a bare tab number or a tool name, which keeps hand-named tabs safe and
@@ -127,11 +131,14 @@ herdr plugin log list --plugin royal-lobster.spinup
 | File | |
 | --- | --- |
 | `herdr-plugin.toml` | the manifest: one event |
-| `tab-event.js` | the hook — runs the menu in the new tab |
-| `picker.js` | the menu |
-| `lib.js` | reads `tools.toml`, calls the herdr CLI |
-| `tools.toml` | default tools, seeded into your config dir |
-| `tab-title.js` | optional agent hook, independent of the rest |
+| `tools.toml`, `logo.txt` | defaults, seeded into your config dir |
+| `src/tab-event.js` | the hook — runs the menu in the new tab |
+| `src/picker.js` | wires config, rendering and input together |
+| `src/render.js` | draws the centred menu |
+| `src/input.js` | decodes keys and mouse reports |
+| `src/config.js` | reads `tools.toml` and `logo.txt` |
+| `src/herdr.js` | calls the herdr CLI |
+| `src/tab-title.js` | optional agent hook, independent of the rest |
 
 ## License
 

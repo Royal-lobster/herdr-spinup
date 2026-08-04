@@ -6,7 +6,7 @@
 // An event, not a keybinding, because a client driving a remote server can neither
 // resolve nor run a plugin action — events are handled entirely on the server.
 
-const lib = require("./lib.js");
+const { herdr } = require("./herdr.js");
 
 const ROOT = process.env.HERDR_PLUGIN_ROOT || __dirname;
 const STATE_DIR = process.env.HERDR_PLUGIN_STATE_DIR || "/tmp";
@@ -26,7 +26,7 @@ function newTabId() {
 }
 
 function rootPaneOf(tabId) {
-  const panes = lib.herdr(["pane", "list"]).panes || [];
+  const panes = herdr(["pane", "list"]).panes || [];
   return panes.find((p) => p.tab_id === tabId) || null;
 }
 
@@ -48,10 +48,10 @@ function main() {
   // working. COLUMNS/LINES are explicit because the menu's stdout is a pipe.
   const script =
     `clear; CMD=$(COLUMNS=$(tput cols) LINES=$(tput lines) ` +
-    `node ${JSON.stringify(`${ROOT}/picker.js`)}); ` +
+    `node ${JSON.stringify(`${ROOT}/src/picker.js`)}); ` +
     `[ -n "$CMD" ] && exec $CMD; clear`;
 
-  lib.herdr(["pane", "run", pane.pane_id, "sh", "-c", script]);
+  herdr(["pane", "run", pane.pane_id, "sh", "-c", script]);
 }
 
 try {

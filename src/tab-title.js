@@ -17,7 +17,7 @@ const MAX_LEN = 28;
 // hook, so a failure here just means fewer labels qualify.
 function toolLabels() {
   try {
-    return new Set(require("./lib.js").loadTools().map((t) => t.label));
+    return new Set(require("./config.js").loadTools().map((t) => t.label));
   } catch {
     return new Set();
   }
