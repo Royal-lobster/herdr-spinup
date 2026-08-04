@@ -43,9 +43,29 @@ title = "cdx"
 placement = "tab"
 command = ["codex", "--yolo"]
 
+# The clickable menu. Herdr has no palette or button UI, so a popup is the only
+# place a plugin can draw one — and popups get forwarded mouse events.
+[[panes]]
+id = "picker"
+title = "Spinup"
+placement = "popup"
+width = 46
+height = 11
+# Absolute path via $HERDR_PLUGIN_ROOT, not a bare "picker.js": the plugin
+# directory is only the working directory for actions. Panes opened with an
+# explicit --cwd (which these are, so tools start in the project dir) run there
+# instead, and a relative script path fails to resolve.
+command = ["sh", "-c", 'exec node "$HERDR_PLUGIN_ROOT/picker.js"']
+
 # ---------------------------------------------------------------------------
 # Actions
 # ---------------------------------------------------------------------------
+
+[[actions]]
+id = "picker"
+title = "Open spinup menu"
+contexts = ["workspace"]
+command = ["node", "spinup.js"]
 
 [[actions]]
 id = "all"
@@ -80,6 +100,12 @@ command = ["node", "spinup.js"]
 # ---------------------------------------------------------------------------
 # Keybindings — prefix is ctrl+a per ~/.config/herdr/config.toml
 # ---------------------------------------------------------------------------
+
+[[keys.command]]
+key = "prefix+space"
+type = "plugin_action"
+command = "srujan.spinup.picker"
+description = "open spinup menu"
 
 [[keys.command]]
 key = "prefix+S"

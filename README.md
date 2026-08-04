@@ -13,19 +13,39 @@ Herdr plugin that spins up a working set of tools — one tab each — in the cu
 
 Prefix is `ctrl+a`.
 
-| Key          | Action                    |
-| ------------ | ------------------------- |
-| `prefix + S` | all four                  |
-| `prefix + E` | `fresh`                   |
-| `prefix + V` | `tuicr`                   |
-| `prefix + C` | `cc`                      |
-| `prefix + D` | `cdx`                     |
+| Key              | Action                 |
+| ---------------- | ---------------------- |
+| `prefix + space` | open the picker menu   |
+| `prefix + S`     | all four               |
+| `prefix + E`     | `fresh`                |
+| `prefix + V`     | `tuicr`                |
+| `prefix + C`     | `cc`                   |
+| `prefix + D`     | `cdx`                  |
 
 Or from the CLI:
 
 ```bash
 herdr plugin action invoke srujan.spinup.all
 herdr plugin action invoke srujan.spinup.cc
+```
+
+## The picker
+
+`prefix + space` opens a popup menu — click an entry with the mouse, or use `↑↓`/`jk`,
+`1`-`5`, `enter`. `esc` or `q` dismisses it. Tools already running in the current
+directory are dimmed and marked `✓`.
+
+This exists because **herdr has no button surface**. A plugin action can only be fired
+by a keybinding, the CLI, a ctrl+clicked link, or an event hook — there is no command
+palette, menu or toolbar. A popup pane is the one place a plugin can draw its own UI,
+and popups receive forwarded mouse events, so it is genuinely clickable.
+
+Only one popup can be open session-wide; a second open fails with `popup already open`.
+Since a popup appears in neither `pane list` nor `api snapshot`, the picker writes its
+own pane id to `$HERDR_PLUGIN_STATE_DIR/picker-pane-id` so a wedged one can be closed:
+
+```bash
+herdr plugin pane close "$(cat "$(herdr plugin config-dir srujan.spinup)/../state/picker-pane-id")"
 ```
 
 ## Behaviour
@@ -69,3 +89,11 @@ show up in the agent panel with full lifecycle status without `agent start`.
 
 The `cc`/`cdx` shell aliases don't exist in a plugin subprocess, so the manifest calls
 the real binaries with their flags.
+
+Two more sharp edges worth knowing:
+
+- The plugin directory is the working directory for **actions** only. A pane opened with
+  an explicit `--cwd` runs *there*, so `command = ["node", "picker.js"]` fails with
+  `Cannot find module`. Pane commands must use `$HERDR_PLUGIN_ROOT`.
+- `herdr` reports API failures as an `{error:{code,message}}` payload. `lib.js` inspects
+  it, because a response that parses fine can still represent a failure.
