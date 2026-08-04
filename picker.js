@@ -66,40 +66,91 @@ let selected = 0;
 const ESC = "\x1b";
 const out = (s) => process.stdout.write(s);
 
-// No border or title of our own: Herdr already draws a titled frame around a
-// popup pane, so drawing a second one just nests two boxes.
-//
-// Items start at screen row FIRST_ROW (1-based), one per row, which is what lets
-// a mouse click map back to an item.
-const FIRST_ROW = 2;
-const width = () => Math.max(24, Math.min(process.stdout.columns || 40, 60));
+// No border or title of our own — herdr already frames and titles a plugin pane.
+const LOGO = [
+  "███████╗██████╗ ██╗███╗   ██╗██╗   ██╗██████╗ ",
+  "██╔════╝██╔══██╗██║████╗  ██║██║   ██║██╔══██╗",
+  "███████╗██████╔╝██║██╔██╗ ██║██║   ██║██████╔╝",
+  "╚════██║██╔═══╝ ██║██║╚██╗██║██║   ██║██╔═══╝ ",
+  "███████║██║     ██║██║ ╚████║╚██████╔╝██║     ",
+  "╚══════╝╚═╝     ╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚═╝     ",
+];
+const LOGO_W = Math.max(...LOGO.map((l) => [...l].length));
+const MENU_W = 40;
 
-function render() {
-  const w = width();
+// Set by render(), read by the mouse handler: where the item rows actually
+// landed on screen. Centring makes this move with the pane size, so it can't be
+// a constant.
+let itemTopRow = 1;
+let itemLeftCol = 1;
 
-  const lines = [""];
+function shortCwd() {
+  const home = process.env.HOME || "";
+  const cwd = (CTX && CTX.cwd) || "";
+  return home && cwd.startsWith(home) ? `~${cwd.slice(home.length)}` : cwd;
+}
+
+// Builds the screen as {text, style} rows with *plain* text, so widths can be
+// measured for centring — ANSI codes are applied only at paint time.
+function compose(cols, rows) {
+  const block = [];
+  const w = Math.max(MENU_W, Math.min(LOGO_W, cols - 2));
+
+  // Drop the logo rather than overflow a short or narrow pane.
+  if (rows >= LOGO.length + ITEMS.length + 8 && cols >= LOGO_W + 2) {
+    for (const l of LOGO) block.push({ text: l, style: "\x1b[38;5;180m" });
+    block.push({ text: "" });
+  }
+
+  const cwd = shortCwd();
+  if (cwd) {
+    const t = cwd.length > w ? `…${cwd.slice(-(w - 1))}` : cwd;
+    block.push({ text: t, style: "\x1b[2m" });
+    block.push({ text: "" });
+  }
+
+  const itemStart = block.length;
 
   ITEMS.forEach((item, i) => {
     const on = i === selected;
     const live = running.has(item.id);
-    const mark = live ? "✓" : " ";
-    const left = ` ${on ? "❯" : " "} ${i + 1}  ${mark} ${item.label}`;
-    const right = item.desc ? `${item.desc} ` : " ";
-    const pad = Math.max(1, w - left.length - right.length);
-    let row = `${left}${" ".repeat(pad)}${right}`;
-    row = row.length > w ? row.slice(0, w) : row.padEnd(w);
-    // Reverse video for the cursor line, dim for already-running tools.
-    const style = on ? "\x1b[7m" : live ? "\x1b[2m" : "";
-    lines.push(`${style}${row}\x1b[0m`);
+    const left = `${on ? "❯" : " "} ${i + 1}  ${live ? "✓" : " "} ${item.label}`;
+    const right = item.desc || "";
+    const pad = Math.max(1, w - [...left].length - [...right].length - 1);
+    const text = ` ${left}${" ".repeat(pad)}${right}`;
+    block.push({
+      text: text.length > w ? text.slice(0, w) : text.padEnd(w),
+      style: on ? "\x1b[7m" : live ? "\x1b[2m" : "",
+    });
   });
 
-  lines.push("");
-  lines.push(`\x1b[2m  click · ↑↓ · 1-${ITEMS.length} · esc\x1b[0m`);
+  block.push({ text: "" });
+  block.push({ text: `  click · ↑↓ · 1-${ITEMS.length} · esc`, style: "\x1b[2m" });
 
-  // Repaint in place rather than clearing the whole screen, so the popup
-  // doesn't flicker on every keystroke.
-  out(`${ESC}[H`);
-  out(lines.join(`${ESC}[K\r\n`) + `${ESC}[K`);
+  return { block, itemStart, w };
+}
+
+function render() {
+  const cols = process.stdout.columns || 80;
+  const rows = process.stdout.rows || 24;
+  const { block, itemStart, w } = compose(cols, rows);
+
+  const top = Math.max(0, Math.floor((rows - block.length) / 2));
+  const left = Math.max(0, Math.floor((cols - w) / 2));
+  const indent = " ".repeat(left);
+
+  itemTopRow = top + itemStart + 1; // 1-based screen row of the first item
+  itemLeftCol = left + 1;
+
+  // Repaint from home and erase to end of screen, rather than clearing first —
+  // clearing makes the whole screen flash on every keystroke.
+  let buf = `${ESC}[H`;
+  for (let i = 0; i < top; i++) buf += `${ESC}[K\r\n`;
+  for (const row of block) {
+    buf += `${indent}${row.style || ""}${row.text}\x1b[0m${ESC}[K\r\n`;
+  }
+  buf += `${ESC}[J`;
+  out(buf);
 }
 
 function restore() {
@@ -197,7 +248,8 @@ function handleMouse(seq) {
   }
   if (btn !== 0) return true; // ignore non-left buttons
 
-  const index = row - FIRST_ROW;
+  // itemTopRow moves with the pane size, since the block is centred.
+  const index = row - itemTopRow;
   if (index < 0 || index >= ITEMS.length) return true;
 
   if (kind === "M") {
@@ -308,6 +360,9 @@ function main() {
   out(`${ESC}[?1000h${ESC}[?1006h`); // mouse on, SGR encoding
   out(`${ESC}[2J`);
   render();
+
+  // Re-centre when the pane is resized.
+  process.stdout.on("resize", render);
 
   process.on("SIGINT", quit);
   process.on("SIGTERM", quit);
