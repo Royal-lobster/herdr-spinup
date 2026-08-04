@@ -12,10 +12,9 @@
 const { spawnSync } = require("node:child_process");
 const lib = require("./lib.js");
 
-const ITEMS = [
-  { id: "all", label: "all four", desc: "" },
-  ...lib.TOOLS.map((t) => ({ id: t, label: t, desc: lib.TOOL_DESC[t] })),
-];
+// One row per tool. Launching all four stays on its own keybinding (prefix+S)
+// rather than taking up a row here.
+const ITEMS = lib.TOOLS.map((t) => ({ id: t, label: t, desc: lib.TOOL_DESC[t] }));
 
 // A popup that dies takes its own error message with it — the pane closes
 // instantly and there is no plugin log for pane commands, only for actions. So
@@ -29,16 +28,23 @@ function logCrash(err) {
   }
 }
 
-// A popup appears in neither `pane list` nor `api snapshot`, and its id isn't in
-// the open response either — so the only way to make a wedged popup closable
-// with `herdr plugin pane close` is for the popup to record its own id.
-const ID_FILE = `${process.env.HERDR_PLUGIN_STATE_DIR || "/tmp"}/picker-pane-id`;
+// `esc` is how you dismiss the picker. This file is only a fallback for a popup
+// that stops responding, since a popup's pane id appears in neither `pane list`,
+// `api snapshot`, nor the open response. Written unconditionally: popups seem not
+// to get HERDR_PANE_ID, so an empty file is itself the useful signal that
+// `herdr plugin pane close` has nothing to target.
+const ID_FILE = `${process.env.HERDR_PLUGIN_STATE_DIR || "/tmp"}/picker-state.json`;
 
 function writeIdFile() {
   try {
-    if (process.env.HERDR_PANE_ID) {
-      require("node:fs").writeFileSync(ID_FILE, `${process.env.HERDR_PANE_ID}\n`);
-    }
+    require("node:fs").writeFileSync(
+      ID_FILE,
+      JSON.stringify({
+        pane_id: process.env.HERDR_PANE_ID || "",
+        trigger_tab: process.env.SPINUP_TRIGGER_TAB || "",
+        cwd: (CTX && CTX.cwd) || "",
+      }) + "\n",
+    );
   } catch {
     // not worth failing the picker over
   }
@@ -60,40 +66,35 @@ let selected = 0;
 const ESC = "\x1b";
 const out = (s) => process.stdout.write(s);
 
-// Frame geometry. Items start at screen row FIRST_ROW (1-based), one per row,
-// which is what lets a mouse click map back to an item.
-const FIRST_ROW = 3;
-const width = () => Math.max(28, Math.min(process.stdout.columns || 46, 60));
+// No border or title of our own: Herdr already draws a titled frame around a
+// popup pane, so drawing a second one just nests two boxes.
+//
+// Items start at screen row FIRST_ROW (1-based), one per row, which is what lets
+// a mouse click map back to an item.
+const FIRST_ROW = 2;
+const width = () => Math.max(24, Math.min(process.stdout.columns || 40, 60));
 
 function render() {
   const w = width();
-  const inner = w - 2;
-  const title = " Spinup ";
-  const bar = "─".repeat(Math.max(0, inner - title.length - 1));
 
-  const lines = [];
-  lines.push(`┌─${title}${bar}┐`);
-  lines.push(`│${" ".repeat(inner)}│`);
+  const lines = [""];
 
   ITEMS.forEach((item, i) => {
     const on = i === selected;
-    const live = item.id !== "all" && running.has(item.id);
+    const live = running.has(item.id);
     const mark = live ? "✓" : " ";
-    const left = `${on ? "❯" : " "} ${i + 1}  ${mark} ${item.label}`;
-    const right = item.desc ? `${item.desc}  ` : "  ";
-    const pad = Math.max(1, inner - left.length - right.length);
+    const left = ` ${on ? "❯" : " "} ${i + 1}  ${mark} ${item.label}`;
+    const right = item.desc ? `${item.desc} ` : " ";
+    const pad = Math.max(1, w - left.length - right.length);
     let row = `${left}${" ".repeat(pad)}${right}`;
-    if (row.length > inner) row = row.slice(0, inner);
-    else row = row + " ".repeat(inner - row.length);
+    row = row.length > w ? row.slice(0, w) : row.padEnd(w);
     // Reverse video for the cursor line, dim for already-running tools.
     const style = on ? "\x1b[7m" : live ? "\x1b[2m" : "";
-    lines.push(`│${style}${row}\x1b[0m│`);
+    lines.push(`${style}${row}\x1b[0m`);
   });
 
-  lines.push(`│${" ".repeat(inner)}│`);
-  const hint = "  click · ↑↓ · 1-5 · esc";
-  lines.push(`│\x1b[2m${hint.padEnd(inner).slice(0, inner)}\x1b[0m│`);
-  lines.push(`└${"─".repeat(inner)}┘`);
+  lines.push("");
+  lines.push(`\x1b[2m  click · ↑↓ · 1-${ITEMS.length} · esc\x1b[0m`);
 
   // Repaint in place rather than clearing the whole screen, so the popup
   // doesn't flicker on every keystroke.
@@ -116,7 +117,7 @@ function restore() {
 function choose(index) {
   const item = ITEMS[index];
   if (!item) return;
-  const wanted = item.id === "all" ? lib.TOOLS : [item.id];
+  const wanted = [item.id];
 
   restore();
   out(`${ESC}[2J${ESC}[H`);
@@ -144,6 +145,19 @@ function choose(index) {
     waitKeyThenExit();
     return;
   }
+
+  // Launched from a brand-new empty tab (the tab.created hook): the tools opened
+  // in tabs of their own, so that one is now a leftover. Only reached on a real
+  // pick — quitting with esc never gets here.
+  const trigger = process.env.SPINUP_TRIGGER_TAB;
+  if (trigger) {
+    try {
+      lib.herdr(["tab", "close", trigger]);
+    } catch {
+      // an extra empty tab is not worth surfacing
+    }
+  }
+
   process.exit(0);
 }
 

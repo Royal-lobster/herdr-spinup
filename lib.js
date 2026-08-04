@@ -119,6 +119,43 @@ function spinUp(tool, ctx) {
   return { tool, status: "started", tabId: pane.tab_id };
 }
 
+// The tab.created event hook opens the picker — but the tool tabs this plugin
+// opens are themselves new tabs, so without a guard each spin-up would trigger
+// another picker. Tab labels can't be the guard: the event fires at creation,
+// before the tab is renamed. A short-lived marker file is checked instead.
+const STATE_DIR = process.env.HERDR_PLUGIN_STATE_DIR || "/tmp";
+const SUPPRESS_FILE = `${STATE_DIR}/suppress-tab-events`;
+const SUPPRESS_MS = 10000;
+
+function suppressTabEvents() {
+  try {
+    require("node:fs").writeFileSync(SUPPRESS_FILE, String(Date.now()));
+  } catch {
+    // if this fails the worst case is a spurious picker, not a loop:
+    // "popup already open" stops it from stacking
+  }
+}
+
+function tabEventsSuppressed() {
+  try {
+    const raw = require("node:fs").readFileSync(SUPPRESS_FILE, "utf8").trim();
+    const at = Number(raw);
+    if (!Number.isFinite(at)) return false;
+    // Time-boxed so a crashed spin-up can't suppress the hook forever.
+    return Date.now() - at < SUPPRESS_MS;
+  } catch {
+    return false;
+  }
+}
+
+function releaseTabEvents() {
+  try {
+    require("node:fs").unlinkSync(SUPPRESS_FILE);
+  } catch {
+    // already gone
+  }
+}
+
 function notify(title, body) {
   const args = ["notification", "show", title];
   if (body) args.push("--body", body);
@@ -130,6 +167,9 @@ function notify(title, body) {
 function spinUpAll(wanted, ctx) {
   const done = [];
   const failed = [];
+
+  // Every tab opened below fires tab.created; keep the hook quiet while we work.
+  suppressTabEvents();
 
   for (const tool of wanted) {
     try {
@@ -156,7 +196,13 @@ function spinUpAll(wanted, ctx) {
   if (reused.length) parts.push(`reused ${reused.join(", ")}`);
   if (failed.length) parts.push(`failed ${failed.map((f) => f.tool).join(", ")}`);
 
+  // Held until the tabs have settled rather than cleared immediately, so the
+  // events still in flight for the tabs above stay suppressed.
   return { summary: parts.join(" · ") || "nothing to do", failed };
 }
 
-module.exports = { HERDR, PLUGIN_ID, TOOLS, TOOL_DESC, herdr, resolveContext, findExisting, runningTools, spinUp, spinUpAll, notify };
+module.exports = {
+  HERDR, PLUGIN_ID, TOOLS, TOOL_DESC, STATE_DIR,
+  herdr, resolveContext, findExisting, runningTools, spinUp, spinUpAll, notify,
+  suppressTabEvents, tabEventsSuppressed, releaseTabEvents,
+};

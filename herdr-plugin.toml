@@ -49,8 +49,8 @@ command = ["codex", "--yolo"]
 id = "picker"
 title = "Spinup"
 placement = "popup"
-width = 46
-height = 11
+width = 40
+height = 9
 # Absolute path via $HERDR_PLUGIN_ROOT, not a bare "picker.js": the plugin
 # directory is only the working directory for actions. Panes opened with an
 # explicit --cwd (which these are, so tools start in the project dir) run there
@@ -96,6 +96,17 @@ id = "cdx"
 title = "Spin up cdx (codex)"
 contexts = ["workspace"]
 command = ["node", "spinup.js"]
+
+# ---------------------------------------------------------------------------
+# Events — opening a new tab offers the tool menu.
+#
+# Absolute path for the same reason as the picker pane. The handler guards
+# against the tabs this plugin opens itself, which would otherwise re-trigger it.
+# ---------------------------------------------------------------------------
+
+[[events]]
+on = "tab.created"
+command = ["sh", "-c", 'exec node "$HERDR_PLUGIN_ROOT/tab-event.js"']
 
 # ---------------------------------------------------------------------------
 # Keybindings — prefix is ctrl+a per ~/.config/herdr/config.toml

@@ -29,24 +29,45 @@ herdr plugin action invoke srujan.spinup.all
 herdr plugin action invoke srujan.spinup.cc
 ```
 
+## New tabs
+
+A `tab.created` event hook opens the picker whenever you make a new tab, so "new tab"
+becomes "new tab, running something". Pick a tool and the now-redundant empty tab closes
+itself; press `esc` and it stays exactly as it was.
+
+Herdr's own built-in "new tab" dialog can't be extended — plugins get actions, panes,
+events, link handlers and keybindings, and none of them reach native UI. This hook is the
+closest equivalent. Because that dialog is session-modal and blocks plugin popups, the
+handler retries for ~8s and the picker appears once you dismiss it.
+
+The tabs this plugin opens are new tabs too, so they re-fire the hook. A time-boxed
+marker file (`$HERDR_PLUGIN_STATE_DIR/suppress-tab-events`) is what stops the recursion —
+tab labels can't do it, because the event fires before the tab is renamed.
+
 ## The picker
 
 `prefix + space` opens a popup menu — click an entry with the mouse, or use `↑↓`/`jk`,
-`1`-`5`, `enter`. `esc` or `q` dismisses it. Tools already running in the current
-directory are dimmed and marked `✓`.
+`1`-`4`, `enter`. `esc` or `q` dismisses it. Tools already running in the current
+directory are dimmed and marked `✓`. Launching all four is `prefix + S`, not a menu row.
 
 This exists because **herdr has no button surface**. A plugin action can only be fired
 by a keybinding, the CLI, a ctrl+clicked link, or an event hook — there is no command
 palette, menu or toolbar. A popup pane is the one place a plugin can draw its own UI,
 and popups receive forwarded mouse events, so it is genuinely clickable.
 
-Only one popup can be open session-wide; a second open fails with `popup already open`.
-Since a popup appears in neither `pane list` nor `api snapshot`, the picker writes its
-own pane id to `$HERDR_PLUGIN_STATE_DIR/picker-pane-id` so a wedged one can be closed:
+Only one popup can be open session-wide — while one is up, opening another fails with
+`popup already open`, including from the CLI.
 
-```bash
-herdr plugin pane close "$(cat "$(herdr plugin config-dir srujan.spinup)/../state/picker-pane-id")"
-```
+Popups are not addressable panes: they appear in neither `pane list` nor `api snapshot`,
+and no pane id comes back in the open response — nor do they receive `HERDR_PANE_ID`. So
+`esc` is the only way out; there is nothing for `herdr plugin pane close` to target. The
+picker records what it did get in `$HERDR_PLUGIN_STATE_DIR/picker-state.json`.
+
+Popup position isn't controllable either — `width`/`height` are the only knobs, and herdr
+centres popups against the whole window rather than the content area, so with the sidebar
+open the picker sits left of where herdr's own modals appear. That one needs fixing
+upstream. The picker draws no border of its own, since herdr already frames a popup pane
+and titles it.
 
 ## Behaviour
 
