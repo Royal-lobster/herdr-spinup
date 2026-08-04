@@ -1,0 +1,112 @@
+id = "srujan.spinup"
+name = "Spinup"
+version = "0.1.0"
+min_herdr_version = "0.8.0"
+description = "One-key launch of fresh, tuicr, cc and cdx as dedicated tabs in the current directory"
+platforms = ["linux", "macos"]
+
+# ---------------------------------------------------------------------------
+# Panes — one plugin-owned tab per tool.
+#
+# These are declared as [[panes]] rather than built with `tab create` +
+# `pane run` / `agent start`: panes created through the plain socket API are not
+# registered in the attached client's UI state, and an agent running in one gets
+# SIGHUP'd the moment the client reconciles focus. Plugin-owned panes with
+# placement = "tab" are persistent and survive focus.
+#
+# `cc`/`cdx` run the real binaries, not the shell aliases (which don't exist in
+# a plugin subprocess). Herdr detects the agent from the process name, so they
+# still land in the agent panel with full lifecycle status.
+# ---------------------------------------------------------------------------
+
+[[panes]]
+id = "fresh"
+title = "fresh"
+placement = "tab"
+command = ["fresh"]
+
+[[panes]]
+id = "tuicr"
+title = "tuicr"
+placement = "tab"
+command = ["tuicr"]
+
+[[panes]]
+id = "cc"
+title = "cc"
+placement = "tab"
+command = ["claude", "--permission-mode", "auto"]
+
+[[panes]]
+id = "cdx"
+title = "cdx"
+placement = "tab"
+command = ["codex", "--yolo"]
+
+# ---------------------------------------------------------------------------
+# Actions
+# ---------------------------------------------------------------------------
+
+[[actions]]
+id = "all"
+title = "Spin up full stack (fresh + tuicr + cc + cdx)"
+contexts = ["workspace"]
+command = ["node", "spinup.js"]
+
+[[actions]]
+id = "fresh"
+title = "Spin up fresh (editor)"
+contexts = ["workspace"]
+command = ["node", "spinup.js"]
+
+[[actions]]
+id = "tuicr"
+title = "Spin up tuicr (code review)"
+contexts = ["workspace"]
+command = ["node", "spinup.js"]
+
+[[actions]]
+id = "cc"
+title = "Spin up cc (claude)"
+contexts = ["workspace"]
+command = ["node", "spinup.js"]
+
+[[actions]]
+id = "cdx"
+title = "Spin up cdx (codex)"
+contexts = ["workspace"]
+command = ["node", "spinup.js"]
+
+# ---------------------------------------------------------------------------
+# Keybindings — prefix is ctrl+a per ~/.config/herdr/config.toml
+# ---------------------------------------------------------------------------
+
+[[keys.command]]
+key = "prefix+S"
+type = "plugin_action"
+command = "srujan.spinup.all"
+description = "spin up fresh + tuicr + cc + cdx"
+
+[[keys.command]]
+key = "prefix+E"
+type = "plugin_action"
+command = "srujan.spinup.fresh"
+description = "spin up fresh"
+
+[[keys.command]]
+key = "prefix+V"
+type = "plugin_action"
+command = "srujan.spinup.tuicr"
+description = "spin up tuicr"
+
+[[keys.command]]
+key = "prefix+C"
+type = "plugin_action"
+command = "srujan.spinup.cc"
+description = "spin up cc (claude)"
+
+[[keys.command]]
+key = "prefix+D"
+type = "plugin_action"
+command = "srujan.spinup.cdx"
+description = "spin up cdx (codex)"
