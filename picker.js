@@ -126,22 +126,17 @@ function restore() {
   }
 }
 
-// Leave the pane as the shell found it, then hand the command to the wrapper.
-function choose(index) {
-  const item = ITEMS[index];
-  if (!item) return;
+// Leave the pane as the shell found it, then hand the choice to the wrapper.
+// Nothing on stdout means the wrapper runs nothing and the prompt comes back.
+function finish(command) {
   restore();
   out(`${ESC}[2J${ESC}[H`);
-  process.stdout.write(item.command);
+  if (command) process.stdout.write(command);
   process.exit(0);
 }
 
-// Nothing on stdout: the wrapper runs nothing and the shell prompt comes back.
-function quit() {
-  restore();
-  out(`${ESC}[2J${ESC}[H`);
-  process.exit(0);
-}
+const quit = () => finish("");
+const choose = (index) => ITEMS[index] && finish(ITEMS[index].command);
 
 function move(delta) {
   selected = (selected + delta + ITEMS.length) % ITEMS.length;
@@ -149,20 +144,16 @@ function move(delta) {
 }
 
 // SGR mouse reports: ESC [ < btn ; col ; row (M=press, m=release).
-function handleMouse(seq) {
-  const m = /^\x1b\[<(\d+);(\d+);(\d+)([Mm])/.exec(seq);
-  if (!m) return false;
+const MOUSE = /^\x1b\[<(\d+);(\d+);(\d+)([Mm])/;
+
+function handleMouse(m) {
   const btn = Number(m[1]);
-  const row = Number(m[3]);
 
-  if (btn === 64 || btn === 65) {
-    move(btn === 64 ? -1 : 1);
-    return true;
-  }
-  if (btn !== 0) return true;
+  if (btn === 64 || btn === 65) return move(btn === 64 ? -1 : 1); // wheel
+  if (btn !== 0) return; // ignore non-left buttons
 
-  const index = row - itemTopRow;
-  if (index < 0 || index >= ITEMS.length) return true;
+  const index = Number(m[3]) - itemTopRow;
+  if (index < 0 || index >= ITEMS.length) return;
 
   if (m[4] === "M") {
     selected = index; // highlight on press so the click feels responsive
@@ -170,7 +161,6 @@ function handleMouse(seq) {
   } else {
     choose(index);
   }
-  return true;
 }
 
 // A single read can carry several keypresses, or a mouse report glued to one, so
@@ -190,10 +180,10 @@ function onData(buf) {
   pending += buf.toString();
 
   while (pending.length) {
-    const mouse = /^\x1b\[<(\d+);(\d+);(\d+)([Mm])/.exec(pending);
+    const mouse = MOUSE.exec(pending);
     if (mouse) {
       pending = pending.slice(mouse[0].length);
-      handleMouse(mouse[0]);
+      handleMouse(mouse);
       continue;
     }
 
