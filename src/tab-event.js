@@ -46,8 +46,12 @@ function main() {
   // The menu draws to /dev/tty and prints only the choice, so this captures it
   // without swallowing the UI. `exec` keeps herdr's process-name agent detection
   // working. COLUMNS/LINES are explicit because the menu's stdout is a pipe.
+  // HERDR_PLUGIN_CONFIG_DIR is passed through because the menu runs in the tab's own
+  // shell, which is not a plugin process and so does not inherit it. Without this the
+  // user's tools.json and logo.txt are never found.
   const script =
     `clear; CMD=$(COLUMNS=$(tput cols) LINES=$(tput lines) ` +
+    `HERDR_PLUGIN_CONFIG_DIR=${JSON.stringify(process.env.HERDR_PLUGIN_CONFIG_DIR || "")} ` +
     `node ${JSON.stringify(`${ROOT}/src/picker.js`)}); ` +
     `[ -n "$CMD" ] && exec $CMD; clear`;
 
