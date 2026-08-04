@@ -11,16 +11,30 @@ Herdr plugin that spins up a working set of tools — one tab each — in the cu
 
 ## Keys
 
-Prefix is `ctrl+a`.
+**Keybindings are client-side.** The plugin is installed on the machine running the
+herdr *server* (forge), but keys are read by the *client* — so when driving forge from
+another machine with `herdr --remote forge`, the `[[keys.command]]` blocks in this
+manifest never fire. The key → action mapping has to be declared in the **client's**
+`~/.config/herdr/config.toml`; only the action id crosses the wire.
 
-| Key              | Action                 |
-| ---------------- | ---------------------- |
-| `prefix + space` | open the picker menu   |
-| `prefix + S`     | all four               |
-| `prefix + E`     | `fresh`                |
-| `prefix + V`     | `tuicr`                |
-| `prefix + C`     | `cc`                   |
-| `prefix + D`     | `cdx`                  |
+Bindings live in rover's config (prefix there is Hyper+J, `cmd+ctrl+alt+shift+j`):
+
+| Key                | Action               |
+| ------------------ | -------------------- |
+| `prefix + space`   | open the picker menu |
+| `prefix + shift+s` | all four             |
+| `prefix + shift+e` | `fresh`              |
+| `prefix + shift+v` | `tuicr`              |
+| `prefix + shift+c` | `cc`                 |
+| `prefix + shift+y` | `cdx`                |
+
+Run `herdr config check` after editing — it reports collisions with built-in bindings
+that aren't listed in the config file, and herdr silently keeps the built-in and disables
+yours. `prefix+e/r/c/d` are already `edit_scrollback`, `resize_mode`, `copy_mode` and
+`close_workspace`; `prefix+shift+t` is `rename_tab`.
+
+The manifest's own keybindings are kept for the case where the client runs on the same
+machine as the server.
 
 Or from the CLI:
 
