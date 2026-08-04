@@ -14,8 +14,26 @@ Herdr plugin that spins up a working set of tools — one tab each — in the cu
 **Keybindings are client-side.** The plugin is installed on the machine running the
 herdr *server* (forge), but keys are read by the *client* — so when driving forge from
 another machine with `herdr --remote forge`, the `[[keys.command]]` blocks in this
-manifest never fire. The key → action mapping has to be declared in the **client's**
-`~/.config/herdr/config.toml`; only the action id crosses the wire.
+manifest never fire. They have to be declared in the **client's**
+`~/.config/herdr/config.toml`.
+
+`type = "plugin_action"` does **not** work from such a client: it resolves against the
+*local* plugin registry, and a remote client has none (`herdr plugin list` → "No plugins
+installed", no local server). The binding is silently dropped — no error, and nothing
+reaches the server's plugin log. Use `type = "shell"` and invoke the action on the server
+over SSH instead; it runs detached, and a multiplexed round trip is ~0.2s:
+
+```toml
+[[keys.command]]
+key = "prefix+space"
+type = "shell"
+command = 'ssh -n forge "~/.local/bin/herdr plugin action invoke srujan.spinup.picker"'
+description = "spinup menu"
+```
+
+The absolute path matters — a non-interactive SSH shell doesn't have `herdr` on `PATH`.
+The action still resolves the workspace and cwd from the *focused* pane on the server, so
+tools land in whatever project you're looking at.
 
 Bindings live in rover's config (prefix there is Hyper+J, `cmd+ctrl+alt+shift+j`):
 
