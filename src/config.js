@@ -1,6 +1,6 @@
 "use strict";
 
-// Reads the two user-editable files: tools.toml and logo.txt.
+// Reads the two user-editable files: tools.json and logo.txt.
 
 const fs = require("node:fs");
 const path = require("node:path");
@@ -8,8 +8,14 @@ const path = require("node:path");
 const BUNDLED = path.join(__dirname, "..");
 const CONFIG_DIR = process.env.HERDR_PLUGIN_CONFIG_DIR || "";
 
-// HERDR_PLUGIN_CONFIG_DIR sits outside the plugin checkout, so it survives updates.
-// Seed it on first run so there is something to edit.
+/**
+ * Resolves a config file, seeding the user's copy from the bundled one on first run.
+ *
+ * HERDR_PLUGIN_CONFIG_DIR sits outside the plugin checkout, so edits survive updates.
+ *
+ * @param {string} name File name, e.g. `"tools.json"`.
+ * @returns {string} Path to the user's copy, or the bundled file if there is no config dir.
+ */
 function configFile(name) {
   const bundled = path.join(BUNDLED, name);
   if (!CONFIG_DIR) return bundled;
@@ -25,6 +31,12 @@ function configFile(name) {
   }
 }
 
+/**
+ * Reads a config file, treating an unreadable one as empty.
+ *
+ * @param {string} name File name.
+ * @returns {string} File contents, or `""`.
+ */
 function read(name) {
   try {
     return fs.readFileSync(configFile(name), "utf8");
@@ -33,53 +45,29 @@ function read(name) {
   }
 }
 
-// Just enough TOML for tools.toml: comments, [[tools]], scalar `key = value`. Not a
-// general parser — a dependency would mean a build step for a file this simple.
-function parseTools(text) {
-  const tools = [];
-  let cur = null;
-
-  for (const raw of text.split(/\r?\n/)) {
-    let line = "";
-    let quote = null;
-    for (const ch of raw) {
-      // A # inside a quoted value is not a comment.
-      if (quote) {
-        if (ch === quote) quote = null;
-      } else if (ch === '"' || ch === "'") {
-        quote = ch;
-      } else if (ch === "#") {
-        break;
-      }
-      line += ch;
-    }
-    line = line.trim();
-    if (!line) continue;
-
-    if (line === "[[tools]]") {
-      cur = {};
-      tools.push(cur);
-      continue;
-    }
-    if (line.startsWith("[")) {
-      cur = null;
-      continue;
-    }
-    if (!cur) continue;
-
-    const eq = line.indexOf("=");
-    if (eq < 0) continue;
-    const key = line.slice(0, eq).trim();
-    let val = line.slice(eq + 1).trim();
-    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-      val = val.slice(1, -1);
-    }
-    cur[key] = val;
+/**
+ * Parses the tool list.
+ *
+ * @param {string} text File contents.
+ * @returns {object[]} Raw entries, unvalidated. A malformed file yields `[]`, which
+ *   falls back to the bundled defaults rather than an empty menu.
+ */
+function parse(text) {
+  try {
+    const data = JSON.parse(text);
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
   }
-
-  return tools;
 }
 
+/**
+ * Validates parsed entries and fills in defaults.
+ *
+ * @param {object[]} raw Entries from {@link parse}.
+ * @returns {{id: string, command: string, label: string, desc: string, key: string}[]}
+ *   Usable tools. Entries missing `id` or `command`, or repeating an `id`, are dropped.
+ */
 function normalise(raw) {
   const seen = new Set();
   const out = [];
@@ -101,13 +89,19 @@ function normalise(raw) {
 
 let tools = null;
 
+/**
+ * Loads the tool list, falling back to the bundled defaults.
+ *
+ * @returns {object[]} Tools, cached after the first call. Never empty unless the
+ *   bundled file is unreadable too, so a bad edit cannot produce an empty menu.
+ */
 function loadTools() {
   if (tools) return tools;
-  tools = normalise(parseTools(read("tools.toml")));
+  tools = normalise(parse(read("tools.json")));
   if (!tools.length) {
     // A bad edit must not leave an empty menu.
     try {
-      tools = normalise(parseTools(fs.readFileSync(path.join(BUNDLED, "tools.toml"), "utf8")));
+      tools = normalise(parse(fs.readFileSync(path.join(BUNDLED, "tools.json"), "utf8")));
     } catch {
       tools = [];
     }
@@ -115,8 +109,12 @@ function loadTools() {
   return tools;
 }
 
-// An empty logo.txt hides the banner. Blank lines inside it are kept — they may be
-// part of the art.
+/**
+ * Loads the banner shown above the menu.
+ *
+ * @returns {string[]} Lines of `logo.txt`, or `[]` if it is empty — which hides the
+ *   banner. Blank lines inside the art are kept.
+ */
 function loadLogo() {
   const text = read("logo.txt").replace(/[\r\n]+$/, "");
   return text.trim() ? text.split(/\r?\n/) : [];

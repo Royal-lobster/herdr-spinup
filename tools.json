@@ -1,0 +1,6 @@
+[
+  { "id": "fresh", "command": "fresh", "desc": "editor" },
+  { "id": "tuicr", "command": "tuicr", "desc": "review" },
+  { "id": "cc", "command": "claude --permission-mode auto", "desc": "claude" },
+  { "id": "cdx", "command": "codex --yolo", "desc": "codex" }
+]

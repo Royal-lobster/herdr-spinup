@@ -2,7 +2,7 @@ id = "royal-lobster.spinup"
 name = "Spinup"
 version = "0.3.0"
 min_herdr_version = "0.8.0"
-description = "Every new tab opens a launcher: pick a tool and it runs in that tab. Tools are yours to define in tools.toml."
+description = "Every new tab opens a launcher: pick a tool and it runs in that tab. Tools are yours to define in tools.json."
 platforms = ["linux", "macos"]
 
 # ---------------------------------------------------------------------------

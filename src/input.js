@@ -8,12 +8,25 @@ const MOUSE = /^\x1b\[<(\d+);(\d+);(\d+)([Mm])/;
 
 const ESC_WAIT_MS = 60;
 
-// handlers: { move(delta), select(index), quit(), hover(row, pressed) }
+/**
+ * Builds a stdin `data` listener that turns bytes into intent.
+ *
+ * @param {object} handlers
+ * @param {(delta: number) => void} handlers.move Move the cursor by `delta` rows.
+ * @param {(index?: number) => void} handlers.select Commit the given row, or the current one.
+ * @param {() => void} handlers.quit Dismiss without choosing.
+ * @param {(row: number, pressed: boolean) => void} handlers.hover Mouse at a screen row.
+ * @param {(ch: string) => boolean} handlers.shortcut Try `ch` as a shortcut; true if it matched.
+ * @returns {(buf: Buffer) => void} Listener for `process.stdin`.
+ */
 function createReader(handlers) {
   let pending = "";
   // Escape and the start of an arrow key are the same byte, so a lone ESC must wait.
   let escTimer = null;
 
+  /**
+   * @param {RegExpExecArray} m A matched SGR mouse report.
+   */
   function mouse(m) {
     const btn = Number(m[1]);
     if (btn === 64 || btn === 65) return handlers.move(btn === 64 ? -1 : 1); // wheel

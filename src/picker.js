@@ -13,10 +13,19 @@ const items = loadTools();
 const logo = loadLogo();
 let selected = 0;
 
+/**
+ * Redraws the menu from current state.
+ */
 function repaint() {
   render.paint({ items, logo, selected });
 }
 
+/**
+ * Restores the terminal and exits, handing the choice to the shell wrapper.
+ *
+ * @param {string} command The chosen command line, or `""` to choose nothing — which
+ *   leaves stdout empty, so the wrapper runs nothing and the prompt returns.
+ */
 function finish(command) {
   render.leave();
   if (process.stdin.isTTY) {
@@ -62,6 +71,9 @@ const reader = createReader({
   },
 });
 
+/**
+ * Puts the terminal in raw mode, draws the menu and waits for input.
+ */
 function main() {
   if (!items.length) process.exit(0);
 

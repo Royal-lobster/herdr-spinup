@@ -41,21 +41,28 @@ prompt_new_tab_name = false
 The four above are only defaults. Edit the copy seeded in your config directory:
 
 ```bash
-cd "$(herdr plugin config-dir royal-lobster.spinup)"   # tools.toml and logo.txt
+cd "$(herdr plugin config-dir royal-lobster.spinup)"   # tools.json and logo.txt
 ```
 
-```toml
-[[tools]]
-id = "cc"                                   # required, unique
-command = "claude --permission-mode auto"   # required, a shell command line
-desc = "claude"                             # optional, dim text on the right
-label = "cc"                                # optional, defaults to id
-key = "c"                                   # optional shortcut, defaults to the row number
+```json
+[
+  { "id": "cc", "command": "claude --permission-mode auto", "desc": "claude", "key": "c" }
+]
 ```
+
+| Field | |
+| --- | --- |
+| `id` | **required**, unique |
+| `command` | **required**, a shell command line |
+| `desc` | optional, dim text on the right of the row |
+| `label` | optional, defaults to `id` — shown in the menu |
+| `key` | optional single-character shortcut, defaults to the row number |
 
 Shell **aliases don't exist here** — name the real binary. A malformed entry is skipped, and
 if the whole file fails to parse the bundled defaults are used, so a bad edit can't leave you
 with an empty menu.
+
+JSON rather than TOML so there is no parser to maintain — `JSON.parse` is built in.
 
 The banner is `logo.txt` in the same directory. Any ASCII art will do; empty the file to hide
 it. Both files are seeded on first run and live outside the plugin checkout, so they survive
@@ -131,12 +138,12 @@ herdr plugin log list --plugin royal-lobster.spinup
 | File | |
 | --- | --- |
 | `herdr-plugin.toml` | the manifest: one event |
-| `tools.toml`, `logo.txt` | defaults, seeded into your config dir |
+| `tools.json`, `logo.txt` | defaults, seeded into your config dir |
 | `src/tab-event.js` | the hook — runs the menu in the new tab |
 | `src/picker.js` | wires config, rendering and input together |
 | `src/render.js` | draws the centred menu |
 | `src/input.js` | decodes keys and mouse reports |
-| `src/config.js` | reads `tools.toml` and `logo.txt` |
+| `src/config.js` | reads `tools.json` and `logo.txt` |
 | `src/herdr.js` | calls the herdr CLI |
 | `src/tab-title.js` | optional agent hook, independent of the rest |
 
