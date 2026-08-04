@@ -96,13 +96,12 @@ function compose({ items, logo, selected }, c, r) {
   return { block, itemStart, w };
 }
 
-// Screen row of the first item, so a click maps back to one. Moves with the pane.
-let itemTopRow = 1;
-
 /**
  * Draws the menu, centred in the pane.
  *
  * @param state
+ * @returns The screen row of the first tool row, which a click maps back to. It moves
+ *   with the pane size, so callers must not cache it.
  */
 function paint(state) {
   const c = cols();
@@ -111,15 +110,14 @@ function paint(state) {
 
   const top = Math.max(0, Math.floor((r - block.length) / 2));
   const indent = " ".repeat(Math.max(0, Math.floor((c - w) / 2)));
-  itemTopRow = top + itemStart + 1;
 
   let buf = `${ESC}[H`;
   for (let i = 0; i < top; i++) buf += `${ESC}[K\r\n`;
   for (const row of block) buf += `${indent}${row.style || ""}${row.text}\x1b[0m${ESC}[K\r\n`;
   out(buf + `${ESC}[J`);
-}
 
-const firstItemRow = () => itemTopRow;
+  return top + itemStart + 1;
+}
 
 /**
  * Hides the cursor and enables SGR mouse reporting.
@@ -142,4 +140,4 @@ function clear() {
   out(`${ESC}[2J${ESC}[H`);
 }
 
-module.exports = { paint, firstItemRow, enter, leave, clear, out, shortcutFor };
+module.exports = { paint, enter, leave, clear, out, shortcutFor };

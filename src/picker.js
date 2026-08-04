@@ -12,12 +12,13 @@ const render = require("./render.js");
 const items = loadTools();
 const logo = loadLogo();
 let selected = 0;
+let itemTopRow = 1;
 
 /**
  * Redraws the menu from current state.
  */
 function repaint() {
-  render.paint({ items, logo, selected });
+  itemTopRow = render.paint({ items, logo, selected });
 }
 
 /**
@@ -52,7 +53,7 @@ const reader = createReader({
     finish("");
   },
   hover(row, pressed) {
-    const index = row - render.firstItemRow();
+    const index = row - itemTopRow;
     if (index < 0 || index >= items.length) return;
     if (pressed) {
       selected = index; // highlight on press so the click feels responsive
