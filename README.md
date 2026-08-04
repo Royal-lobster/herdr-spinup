@@ -54,16 +54,6 @@ There is no keybinding, deliberately: keys are read by the herdr *client*, and a
 driving a remote server cannot resolve a plugin action. Events run on the server, so opening a
 tab works everywhere.
 
-## Optional: name tabs after your first prompt
-
-`src/tab-title.js` renames a tab to a short form of the session's first prompt, so `cc` becomes
-`fix the flaky auth test…`. Add it under `UserPromptSubmit` in `~/.claude/settings.json` or
-`~/.codex/hooks.json`:
-
-```json
-{ "type": "command", "command": "node \"/path/to/herdr-spinup/src/tab-title.js\"" }
-```
-
 ## License
 
 MIT
