@@ -87,19 +87,24 @@ by a keybinding, the CLI, a ctrl+clicked link, or an event hook — there is no 
 palette, menu or toolbar. A popup pane is the one place a plugin can draw its own UI,
 and popups receive forwarded mouse events, so it is genuinely clickable.
 
-Only one popup can be open session-wide — while one is up, opening another fails with
-`popup already open`, including from the CLI.
+The picker is an **overlay** pane, not a `popup`. Popups look like the obvious fit and are
+worse in every way that matters:
 
-Popups are not addressable panes: they appear in neither `pane list` nor `api snapshot`,
-and no pane id comes back in the open response — nor do they receive `HERDR_PANE_ID`. So
-`esc` is the only way out; there is nothing for `herdr plugin pane close` to target. The
-picker records what it did get in `$HERDR_PLUGIN_STATE_DIR/picker-state.json`.
+| | `popup` | `overlay` |
+| --- | --- | --- |
+| more than one at a time | no — `popup already open` | fine |
+| in `pane list` / `api snapshot` | no | yes |
+| gets `HERDR_PANE_ID` | no | yes |
+| closable via `plugin pane close` | nothing to target | yes |
+| position | centred on the whole window, so off-centre whenever the sidebar is open | fills the active pane |
 
-Popup position isn't controllable either — `width`/`height` are the only knobs, and herdr
-centres popups against the whole window rather than the content area, so with the sidebar
-open the picker sits left of where herdr's own modals appear. That one needs fixing
-upstream. The picker draws no border of its own, since herdr already frames a popup pane
-and titles it.
+`width`/`height` are only accepted for `popup`, and are rejected outright for anything
+else. The singleton rule is the nastiest part: it silently blocks the picker from opening
+while any other popup — including herdr's own "new tab" dialog — is up.
+
+Placement is declared here in the manifest and deliberately *not* passed on the
+`plugin pane open` calls, so there's one source of truth. The picker draws no border of its
+own, since herdr already frames and titles a plugin pane.
 
 ## Behaviour
 

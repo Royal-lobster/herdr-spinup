@@ -71,8 +71,7 @@ function main() {
         "plugin", "pane", "open",
         "--plugin", lib.PLUGIN_ID,
         "--entrypoint", "picker",
-        "--placement", "popup",
-        "--cwd", ctx.cwd,
+            "--cwd", ctx.cwd,
         "--focus",
       ];
       // The popup is spawned by Herdr, not by this process, so the triggering tab

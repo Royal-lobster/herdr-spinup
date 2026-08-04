@@ -17,7 +17,6 @@ function openPicker() {
     "plugin", "pane", "open",
     "--plugin", lib.PLUGIN_ID,
     "--entrypoint", "picker",
-    "--placement", "popup",
     "--cwd", ctx.cwd,
     "--focus",
   ]);

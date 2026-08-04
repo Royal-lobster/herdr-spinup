@@ -48,9 +48,12 @@ command = ["codex", "--yolo"]
 [[panes]]
 id = "picker"
 title = "Spinup"
-placement = "popup"
-width = 40
-height = 9
+# overlay, not popup: a popup is a singleton ("popup already open" blocks a second
+# one), is absent from `pane list`/`api snapshot`, never receives HERDR_PANE_ID, and
+# herdr centres it against the whole window so it sits off-centre when the sidebar
+# is open. An overlay is a real, addressable pane zoomed over the active one.
+# width/height are rejected for anything but popup.
+placement = "overlay"
 # Absolute path via $HERDR_PLUGIN_ROOT, not a bare "picker.js": the plugin
 # directory is only the working directory for actions. Panes opened with an
 # explicit --cwd (which these are, so tools start in the project dir) run there
