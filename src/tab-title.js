@@ -16,7 +16,7 @@ const MAX_LEN = 28;
 // safe and limits this to the first message. The plugin env vars are absent in a
 // hook, so a failure here just means fewer labels qualify.
 /**
- * @returns {Set<string>} Configured tool labels. Empty if the config cannot be read —
+ * @returns Configured tool labels. Empty if the config cannot be read —
  *   which is normal here, since a hook is not a plugin process.
  */
 function toolLabels() {
@@ -30,8 +30,8 @@ function toolLabels() {
 /**
  * Whether a tab label may be overwritten.
  *
- * @param {string} label The tab's current label.
- * @returns {boolean} True for a bare number or a tool label. Anything else was named
+ * @param label The tab's current label.
+ * @returns True for a bare number or a tool label. Anything else was named
  *   by a previous prompt or by hand, which is what limits this to the first message.
  */
 function isDefaultLabel(label) {
@@ -44,8 +44,8 @@ function isDefaultLabel(label) {
 /**
  * Digs the prompt out of a hook payload.
  *
- * @param {object} data Parsed stdin.
- * @returns {string|null} The prompt text, or null if none of the known shapes match.
+ * @param data Parsed stdin.
+ * @returns The prompt text, or null if none of the known shapes match.
  */
 function extractPrompt(data) {
   if (!data || typeof data !== "object") return null;
@@ -65,8 +65,8 @@ function extractPrompt(data) {
 /**
  * Condenses a prompt into something that fits a tab bar.
  *
- * @param {string} prompt
- * @returns {string|null} One line, no syntax noise, cut on a word boundary; null if
+ * @param prompt
+ * @returns One line, no syntax noise, cut on a word boundary; null if
  *   nothing meaningful is left.
  */
 function toLabel(prompt) {
@@ -87,7 +87,7 @@ function toLabel(prompt) {
 }
 
 /**
- * @returns {string} The hook payload, or `""` if stdin is unreadable.
+ * @returns The hook payload, or `""` if stdin is unreadable.
  */
 function readStdin() {
   try {

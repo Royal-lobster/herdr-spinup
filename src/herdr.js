@@ -9,8 +9,8 @@ const HERDR = process.env.HERDR_BIN_PATH || "herdr";
 /**
  * Runs a herdr CLI command.
  *
- * @param {string[]} args Arguments, e.g. `["pane", "list"]`.
- * @returns {object} The `result` payload, or `{}` for commands that print nothing.
+ * @param args Arguments, e.g. `["pane", "list"]`.
+ * @returns The `result` payload, or `{}` for commands that print nothing.
  * @throws If the binary is missing, the command fails, or the reply is not JSON.
  */
 function herdr(args) {

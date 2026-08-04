@@ -23,7 +23,7 @@ function repaint() {
 /**
  * Restores the terminal and exits, handing the choice to the shell wrapper.
  *
- * @param {string} command The chosen command line, or `""` to choose nothing — which
+ * @param command The chosen command line, or `""` to choose nothing — which
  *   leaves stdout empty, so the wrapper runs nothing and the prompt returns.
  */
 function finish(command) {

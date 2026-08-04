@@ -13,8 +13,8 @@ const CONFIG_DIR = process.env.HERDR_PLUGIN_CONFIG_DIR || "";
  *
  * HERDR_PLUGIN_CONFIG_DIR sits outside the plugin checkout, so edits survive updates.
  *
- * @param {string} name File name, e.g. `"tools.json"`.
- * @returns {string} Path to the user's copy, or the bundled file if there is no config dir.
+ * @param name File name, e.g. `"tools.json"`.
+ * @returns Path to the user's copy, or the bundled file if there is no config dir.
  */
 function configFile(name) {
   const bundled = path.join(BUNDLED, name);
@@ -34,8 +34,8 @@ function configFile(name) {
 /**
  * Reads a config file, treating an unreadable one as empty.
  *
- * @param {string} name File name.
- * @returns {string} File contents, or `""`.
+ * @param name File name.
+ * @returns File contents, or `""`.
  */
 function read(name) {
   try {
@@ -48,8 +48,8 @@ function read(name) {
 /**
  * Parses the tool list.
  *
- * @param {string} text File contents.
- * @returns {object[]} Raw entries, unvalidated. A malformed file yields `[]`, which
+ * @param text File contents.
+ * @returns Raw entries, unvalidated. A malformed file yields `[]`, which
  *   falls back to the bundled defaults rather than an empty menu.
  */
 function parse(text) {
@@ -64,9 +64,8 @@ function parse(text) {
 /**
  * Validates parsed entries and fills in defaults.
  *
- * @param {object[]} raw Entries from {@link parse}.
- * @returns {{id: string, command: string, label: string, desc: string, key: string}[]}
- *   Usable tools. Entries missing `id` or `command`, or repeating an `id`, are dropped.
+ * @param raw Entries from {@link parse}.
+ * @returns Usable tools. Entries missing `id` or `command`, or repeating an `id`, are dropped.
  */
 function normalise(raw) {
   const seen = new Set();
@@ -92,7 +91,7 @@ let tools = null;
 /**
  * Loads the tool list, falling back to the bundled defaults.
  *
- * @returns {object[]} Tools, cached after the first call. Never empty unless the
+ * @returns Tools, cached after the first call. Never empty unless the
  *   bundled file is unreadable too, so a bad edit cannot produce an empty menu.
  */
 function loadTools() {
@@ -112,7 +111,7 @@ function loadTools() {
 /**
  * Loads the banner shown above the menu.
  *
- * @returns {string[]} Lines of `logo.txt`, or `[]` if it is empty — which hides the
+ * @returns Lines of `logo.txt`, or `[]` if it is empty — which hides the
  *   banner. Blank lines inside the art are kept.
  */
 function loadLogo() {

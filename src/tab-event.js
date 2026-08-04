@@ -14,7 +14,7 @@ const STATE_DIR = process.env.HERDR_PLUGIN_STATE_DIR || "/tmp";
 /**
  * Blocks the thread. This hook has nothing else to do while it waits.
  *
- * @param {number} ms Milliseconds.
+ * @param ms Milliseconds.
  */
 function sleep(ms) {
   const shared = new Int32Array(new SharedArrayBuffer(4));
@@ -22,7 +22,7 @@ function sleep(ms) {
 }
 
 /**
- * @returns {string} The id of the tab that was just created, or `""` if the payload
+ * @returns The id of the tab that was just created, or `""` if the payload
  *   is missing or malformed.
  */
 function newTabId() {
@@ -35,8 +35,8 @@ function newTabId() {
 }
 
 /**
- * @param {string} tabId
- * @returns {object|null} The tab's first pane, or null if the tab has gone.
+ * @param tabId
+ * @returns The tab's first pane, or null if the tab has gone.
  */
 function rootPaneOf(tabId) {
   const panes = herdr(["pane", "list"]).panes || [];

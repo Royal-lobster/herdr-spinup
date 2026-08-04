@@ -19,7 +19,7 @@ try {
 /**
  * Writes to the terminal, bypassing stdout.
  *
- * @param {string} s Text, usually including ANSI escapes.
+ * @param s Text, usually including ANSI escapes.
  */
 function out(s) {
   try {
@@ -34,7 +34,7 @@ const cols = () => Number(process.env.COLUMNS) || process.stdout.columns || 80;
 const rows = () => Number(process.env.LINES) || process.stdout.rows || 24;
 
 /**
- * @returns {string} The working directory, with `$HOME` shortened to `~`.
+ * @returns The working directory, with `$HOME` shortened to `~`.
  */
 function shortCwd() {
   const home = process.env.HOME || "";
@@ -45,9 +45,9 @@ function shortCwd() {
 /**
  * The character that selects a row.
  *
- * @param {object} item A tool.
- * @param {number} i Its index.
- * @returns {string} The tool's own `key`, else the row number, else `""` past nine rows.
+ * @param item A tool.
+ * @param i Its index.
+ * @returns The tool's own `key`, else the row number, else `""` past nine rows.
  */
 function shortcutFor(item, i) {
   return item.key || (i < 9 ? String(i + 1) : "");
@@ -57,11 +57,10 @@ function shortcutFor(item, i) {
  * Lays the screen out as rows of plain text, so widths can be measured for centring;
  * ANSI is applied later, at paint time.
  *
- * @param {{items: object[], logo: string[], selected: number}} state
- * @param {number} c Terminal columns.
- * @param {number} r Terminal rows.
- * @returns {{block: {text: string, style?: string}[], itemStart: number, w: number}}
- *   `itemStart` is the index of the first tool row within `block`; `w` the block width.
+ * @param state
+ * @param c Terminal columns.
+ * @param r Terminal rows.
+ * @returns `itemStart` is the index of the first tool row within `block`; `w` the block width.
  */
 function compose({ items, logo, selected }, c, r) {
   const logoW = logo.length ? Math.max(...logo.map((l) => [...l].length)) : 0;
@@ -103,7 +102,7 @@ let itemTopRow = 1;
 /**
  * Draws the menu, centred in the pane.
  *
- * @param {{items: object[], logo: string[], selected: number}} state
+ * @param state
  */
 function paint(state) {
   const c = cols();
