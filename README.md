@@ -24,7 +24,7 @@ opens in its own tab in the current directory.
 ## Install
 
 ```bash
-herdr plugin install srujangurram/herdr-spinup
+herdr plugin install Royal-lobster/herdr-spinup
 ```
 
 Requires `node` on the machine running the herdr **server**. No build step.
