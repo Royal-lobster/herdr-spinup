@@ -1,20 +1,14 @@
 #!/usr/bin/env node
 "use strict";
 
-// The menu. Runs inside a tab's own pane, and its only job is to print the chosen
-// command line to stdout — the shell wrapper that launched it does the `exec`, so
-// the tool replaces this process in the same pane. Choosing nothing prints
-// nothing and the shell simply returns to its prompt.
-//
-// Because stdout carries the result, the interface itself is drawn to /dev/tty.
-// stdin is untouched, so it is still the terminal.
+// Prints the chosen command to stdout; the shell wrapper execs it. Because stdout
+// carries the result, the UI is drawn to /dev/tty instead.
 
 const fs = require("node:fs");
 const lib = require("./lib.js");
 
 const ITEMS = lib.loadTools();
 
-// stdout is captured by the wrapper; the UI has to bypass it.
 let ttyFd = null;
 try {
   ttyFd = fs.openSync("/dev/tty", "w");
@@ -29,8 +23,7 @@ const out = (s) => {
   }
 };
 
-// With stdout redirected, process.stdout has no size. The wrapper passes the real
-// dimensions through the environment.
+// stdout is a pipe here, so it has no size; the wrapper passes the real one.
 const cols = () => Number(process.env.COLUMNS) || process.stdout.columns || 80;
 const rows = () => Number(process.env.LINES) || process.stdout.rows || 24;
 
@@ -48,8 +41,7 @@ const LOGO = [
 const LOGO_W = Math.max(...LOGO.map((l) => [...l].length));
 const MENU_W = 40;
 
-// Where the item rows landed, so a mouse click maps back to one. Centring makes
-// this move with the pane size, so it can't be a constant.
+// Where the item rows landed; moves with the pane size, so a click needs it.
 let itemTopRow = 1;
 
 function shortcutFor(item, i) {
@@ -62,16 +54,12 @@ function shortCwd() {
   return home && cwd.startsWith(home) ? `~${cwd.slice(home.length)}` : cwd;
 }
 
-// Rows are built with plain text so widths can be measured for centring; ANSI is
-// applied only at paint time.
 function compose(c, r) {
   const block = [];
   const w = Math.max(MENU_W, Math.min(LOGO_W, c - 2));
 
   if (r >= LOGO.length + ITEMS.length + 8 && c >= LOGO_W + 2) {
-    // Theme-aware by using only what the terminal palette defines: ANSI 0-15,
-    // reverse video and dim. A 256-colour literal would ignore the herdr theme,
-    // and herdr exposes no way to read its palette.
+    // ANSI 0-15 / reverse / dim only: a 256-colour literal would ignore the theme.
     for (const l of LOGO) block.push({ text: l, style: "\x1b[33m" });
     block.push({ text: "" });
   }
@@ -126,8 +114,7 @@ function restore() {
   }
 }
 
-// Leave the pane as the shell found it, then hand the choice to the wrapper.
-// Nothing on stdout means the wrapper runs nothing and the prompt comes back.
+// Empty stdout means the wrapper runs nothing and the prompt comes back.
 function finish(command) {
   restore();
   out(`${ESC}[2J${ESC}[H`);
@@ -163,13 +150,10 @@ function handleMouse(m) {
   }
 }
 
-// A single read can carry several keypresses, or a mouse report glued to one, so
-// consume the buffer token by token rather than matching it whole.
+// One read can carry several keypresses, so consume the buffer token by token.
 let pending = "";
 
-// A bare Escape and the start of an arrow-key sequence are the same byte, so a
-// lone ESC has to wait a moment to see whether more follows. Without this it
-// either quits on arrow keys or never quits on Escape.
+// Escape and the start of an arrow key are the same byte, so a lone ESC must wait.
 let escTimer = null;
 
 function onData(buf) {
@@ -187,8 +171,6 @@ function onData(buf) {
       continue;
     }
 
-    // An incomplete escape sequence: wait for the rest rather than reading the
-    // lone ESC as "quit" — but only briefly, or Escape itself never registers.
     if (/^\x1b(\[[<\d;]*)?$/.test(pending)) {
       if (pending === "\x1b") {
         escTimer = setTimeout(() => {

@@ -1,15 +1,10 @@
 #!/usr/bin/env node
 "use strict";
 
-// tab.created hook: run the menu in the new tab's own pane.
+// tab.created hook: runs the menu in the new tab's own pane.
 //
-// The tool then replaces the menu in that same pane, so nothing else is created
-// and no existing tab is touched. `esc` chooses nothing and the shell returns to
-// its prompt.
-//
-// This is also why the launcher works over `herdr --remote`: events are raised and
-// handled entirely on the server, unlike keybindings, which a remote client can
-// neither resolve nor run.
+// An event, not a keybinding, because a client driving a remote server can neither
+// resolve nor run a plugin action — events are handled entirely on the server.
 
 const lib = require("./lib.js");
 
@@ -39,8 +34,7 @@ function main() {
   const tabId = newTabId();
   if (!tabId) return;
 
-  // `pane run` types into the pane's shell, so the pane has to exist and the shell
-  // has to have reached its prompt, or the line is lost.
+  // `pane run` types into the shell, so it must have reached its prompt first.
   let pane = null;
   for (let i = 0; i < 10 && !pane; i++) {
     pane = rootPaneOf(tabId);
@@ -49,14 +43,9 @@ function main() {
   if (!pane) return;
   sleep(250);
 
-  // The menu prints the chosen command to stdout and draws itself on /dev/tty, so
-  // the command substitution captures the choice without swallowing the UI.
-  // `exec` replaces the shell, which keeps herdr's process-name agent detection
-  // working exactly as if the tool had been launched by hand. Choosing nothing
-  // leaves CMD empty and the prompt simply returns.
-  //
-  // COLUMNS/LINES are passed explicitly because the menu's stdout is a pipe and
-  // so has no terminal size of its own.
+  // The menu draws to /dev/tty and prints only the choice, so this captures it
+  // without swallowing the UI. `exec` keeps herdr's process-name agent detection
+  // working. COLUMNS/LINES are explicit because the menu's stdout is a pipe.
   const script =
     `clear; CMD=$(COLUMNS=$(tput cols) LINES=$(tput lines) ` +
     `node ${JSON.stringify(`${ROOT}/picker.js`)}); ` +
@@ -68,12 +57,10 @@ function main() {
 try {
   main();
 } catch (err) {
-  // Closing a brand-new tab before the menu starts is an ordinary race, not a
-  // fault: the pane is gone and there is nothing left to run.
+  // Closing a new tab before the menu starts is a race, not a fault.
   const raced = /pane_not_found|tab_not_found/.test((err && err.message) || "");
 
-  // Anything else must never disrupt opening a tab, but must not vanish either:
-  // event hooks report only an exit code, so unexpected failures go to a file.
+  // Event hooks report only an exit code, so real failures go to a file.
   if (!raced) {
     try {
       require("node:fs").appendFileSync(

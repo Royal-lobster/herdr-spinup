@@ -1,7 +1,6 @@
 "use strict";
 
-// Shared by picker.js, tab-event.js and tab-title.js: reading tools.toml, and
-// calling the herdr CLI (which is the whole plugin API).
+// Reading tools.toml, and calling the herdr CLI — which is the whole plugin API.
 
 const { spawnSync } = require("node:child_process");
 
@@ -10,9 +9,8 @@ const PLUGIN_ID = process.env.HERDR_PLUGIN_ID || "royal-lobster.spinup";
 
 const fs = require("node:fs");
 
-// Just enough TOML for tools.toml: comments, [[tools]] array-of-tables, and
-// scalar `key = value`. Deliberately not a general parser — pulling in a
-// dependency would mean a build step for a file this simple.
+// Just enough TOML for tools.toml: comments, [[tools]], scalar `key = value`. Not a
+// general parser — a dependency would mean a build step for a file this simple.
 function parseToolsToml(text) {
   const tools = [];
   let cur = null;
@@ -84,9 +82,8 @@ function normaliseTools(raw) {
 
 const BUNDLED_TOOLS = `${__dirname}/tools.toml`;
 
-// User config lives in HERDR_PLUGIN_CONFIG_DIR, which herdr keeps outside the
-// plugin checkout so it survives updates. Seed it from the bundled copy on first
-// run so there's something to edit.
+// HERDR_PLUGIN_CONFIG_DIR sits outside the plugin checkout, so it survives updates.
+// Seed it on first run so there's something to edit.
 function toolsPath() {
   const dir = process.env.HERDR_PLUGIN_CONFIG_DIR;
   if (!dir) return BUNDLED_TOOLS;
@@ -141,9 +138,7 @@ function herdr(args) {
   } catch {
     throw new Error(`herdr ${args.join(" ")} returned non-JSON: ${r.stdout.slice(0, 200)}`);
   }
-  // API failures come back as an {error:{code,message}} payload. The exit code
-  // covers this too, but reading the payload turns "exited 1: {json blob}" into
-  // an actual reason.
+  // API failures come back as an {error:{code,message}} payload, not just a status.
   if (parsed.error) {
     const e = parsed.error;
     throw new Error(`herdr ${args.join(" ")} failed: ${e.message || ""}${e.code ? ` (${e.code})` : ""}`);
