@@ -6,6 +6,7 @@
 // nothing and the prompt comes back.
 
 const { loadTools, loadLogo } = require("./config.js");
+const { herdr } = require("./herdr.js");
 const { createReader } = require("./input.js");
 const render = require("./render.js");
 
@@ -19,6 +20,22 @@ let itemTopRow = 1;
  */
 function repaint() {
   itemTopRow = render.paint({ items, logo, selected });
+}
+
+/**
+ * Names the enclosing tab after the chosen tool. Best effort — a tab that cannot be
+ * renamed is not worth failing the launch over.
+ *
+ * @param label The tool's label.
+ */
+function nameTab(label) {
+  const tabId = process.env.HERDR_TAB_ID;
+  if (!tabId) return;
+  try {
+    herdr(["tab", "rename", tabId, label]);
+  } catch {
+    // cosmetic only
+  }
 }
 
 /**
@@ -47,7 +64,10 @@ const reader = createReader({
     repaint();
   },
   select(index = selected) {
-    if (items[index]) finish(items[index].command);
+    const item = items[index];
+    if (!item) return;
+    nameTab(item.label);
+    finish(item.command);
   },
   quit() {
     finish("");

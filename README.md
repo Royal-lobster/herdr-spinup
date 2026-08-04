@@ -36,7 +36,8 @@ cd "$(herdr plugin config-dir royal-lobster.spinup)"
 ```
 
 `tools.json` is the menu. `id` and `command` are required; `label`, `desc` and `key` are
-optional. Name real binaries — shell aliases don't exist here.
+optional. Name real binaries — shell aliases don't exist here. The tab is renamed to the
+tool's `label` when you pick one.
 
 ```json
 [{ "id": "cc", "command": "claude --permission-mode auto", "desc": "claude", "key": "c" }]
