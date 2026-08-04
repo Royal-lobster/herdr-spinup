@@ -11,11 +11,20 @@ const { herdr } = require("./herdr.js");
 const ROOT = process.env.HERDR_PLUGIN_ROOT || __dirname;
 const STATE_DIR = process.env.HERDR_PLUGIN_STATE_DIR || "/tmp";
 
+/**
+ * Blocks the thread. This hook has nothing else to do while it waits.
+ *
+ * @param {number} ms Milliseconds.
+ */
 function sleep(ms) {
   const shared = new Int32Array(new SharedArrayBuffer(4));
   Atomics.wait(shared, 0, 0, ms);
 }
 
+/**
+ * @returns {string} The id of the tab that was just created, or `""` if the payload
+ *   is missing or malformed.
+ */
 function newTabId() {
   try {
     // Shape: {event:"tab_created", data:{type, tab:{tab_id, ...}}}
@@ -25,11 +34,18 @@ function newTabId() {
   }
 }
 
+/**
+ * @param {string} tabId
+ * @returns {object|null} The tab's first pane, or null if the tab has gone.
+ */
 function rootPaneOf(tabId) {
   const panes = herdr(["pane", "list"]).panes || [];
   return panes.find((p) => p.tab_id === tabId) || null;
 }
 
+/**
+ * Waits for the new tab's shell to reach its prompt, then runs the menu in it.
+ */
 function main() {
   const tabId = newTabId();
   if (!tabId) return;

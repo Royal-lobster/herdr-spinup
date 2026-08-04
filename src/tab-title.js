@@ -15,6 +15,10 @@ const MAX_LEN = 28;
 // Only a bare number or a tool label is overwritten, which keeps hand-named tabs
 // safe and limits this to the first message. The plugin env vars are absent in a
 // hook, so a failure here just means fewer labels qualify.
+/**
+ * @returns {Set<string>} Configured tool labels. Empty if the config cannot be read —
+ *   which is normal here, since a hook is not a plugin process.
+ */
 function toolLabels() {
   try {
     return new Set(require("./config.js").loadTools().map((t) => t.label));
@@ -23,6 +27,13 @@ function toolLabels() {
   }
 }
 
+/**
+ * Whether a tab label may be overwritten.
+ *
+ * @param {string} label The tab's current label.
+ * @returns {boolean} True for a bare number or a tool label. Anything else was named
+ *   by a previous prompt or by hand, which is what limits this to the first message.
+ */
 function isDefaultLabel(label) {
   if (!label) return true;
   if (/^\d+$/.test(label.trim())) return true;
@@ -30,6 +41,12 @@ function isDefaultLabel(label) {
 }
 
 // The two CLIs disagree on where the prompt lives, and neither contract is stable.
+/**
+ * Digs the prompt out of a hook payload.
+ *
+ * @param {object} data Parsed stdin.
+ * @returns {string|null} The prompt text, or null if none of the known shapes match.
+ */
 function extractPrompt(data) {
   if (!data || typeof data !== "object") return null;
   const direct =
@@ -45,6 +62,13 @@ function extractPrompt(data) {
 }
 
 // Tab bars are narrow: one line, no syntax noise, cut on a word boundary.
+/**
+ * Condenses a prompt into something that fits a tab bar.
+ *
+ * @param {string} prompt
+ * @returns {string|null} One line, no syntax noise, cut on a word boundary; null if
+ *   nothing meaningful is left.
+ */
 function toLabel(prompt) {
   let s = prompt
     .replace(/```[\s\S]*?```/g, " ")
@@ -62,6 +86,9 @@ function toLabel(prompt) {
   return (lastSpace > MAX_LEN * 0.5 ? cut.slice(0, lastSpace) : cut).trim() + "…";
 }
 
+/**
+ * @returns {string} The hook payload, or `""` if stdin is unreadable.
+ */
 function readStdin() {
   try {
     return require("node:fs").readFileSync(0, "utf8");
@@ -70,6 +97,9 @@ function readStdin() {
   }
 }
 
+/**
+ * Renames the enclosing herdr tab after this session's first prompt.
+ */
 function main() {
   const tabId = process.env.HERDR_TAB_ID;
   if (!tabId) return; // not running inside a Herdr pane
