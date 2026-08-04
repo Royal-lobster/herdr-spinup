@@ -1,87 +1,27 @@
 id = "royal-lobster.spinup"
 name = "Spinup"
-version = "0.2.0"
+version = "0.3.0"
 min_herdr_version = "0.8.0"
-description = "Start-screen launcher: pick a tool from a menu and it opens in its own tab, in the current directory. Tools are yours to define in tools.toml."
+description = "Every new tab opens a launcher: pick a tool and it runs in that tab. Tools are yours to define in tools.toml."
 platforms = ["linux", "macos"]
 
 # ---------------------------------------------------------------------------
-# Panes
-# ---------------------------------------------------------------------------
-
-# Every tool runs through this one entrypoint, with its command line handed over
-# in SPINUP_CMD. Per-tool [[panes]] entries would mean editing this manifest for
-# every tool — and for an installed plugin this file is a managed checkout, so
-# user-defined tools must work without touching it.
+# The whole plugin: one event.
 #
-# `exec` matters: the tool replaces the shell, so herdr's process-name agent
-# detection sees it exactly as if it had been launched directly, and agents land
-# in the agent panel with full lifecycle status.
-[[panes]]
-id = "runner"
-title = "runner"
-placement = "tab"
-command = ["sh", "-c", "exec $SPINUP_CMD"]
-
-# The menu. `overlay`, not `popup`: a popup is a singleton (herdr's own "new tab"
-# dialog occupies the same slot and blocks it), is absent from `pane list`, never
-# receives HERDR_PANE_ID, and is centred against the whole window so it sits
-# off-centre whenever the sidebar is open.
+# On a new tab, the menu is run in that tab's own pane. Picking a tool `exec`s it
+# there, so nothing else is created and no existing tab is touched; `esc` picks
+# nothing and the shell returns to its prompt.
 #
-# Absolute path via $HERDR_PLUGIN_ROOT, not a bare "picker.js": the plugin
-# directory is the working directory for *actions* only. Panes opened with an
-# explicit --cwd run there instead, and a relative path fails to resolve.
-[[panes]]
-id = "picker"
-title = "Spinup"
-placement = "overlay"
-command = ["sh", "-c", 'exec node "$HERDR_PLUGIN_ROOT/picker.js"']
-
-# ---------------------------------------------------------------------------
-# Actions
+# No [[panes]] and no [[actions]] are needed for that, and no keybindings are
+# declared: keys are read by the *client*, and a client driving a remote server has
+# no local plugin registry and no local server, so it can neither resolve nor run a
+# plugin action. Events are raised and handled entirely on the server, which is why
+# this trigger works everywhere.
+#
+# Absolute path via $HERDR_PLUGIN_ROOT: the plugin directory is the working
+# directory for actions only, and this hook's cwd is not guaranteed.
 # ---------------------------------------------------------------------------
 
-[[actions]]
-id = "picker"
-title = "Spinup: open menu"
-contexts = ["workspace"]
-command = ["node", "spinup.js"]
-
-[[actions]]
-id = "all"
-title = "Spinup: start every tool"
-contexts = ["workspace"]
-command = ["node", "spinup.js"]
-
-# ---------------------------------------------------------------------------
-# Events
-# ---------------------------------------------------------------------------
-
-# Making a new tab opens the menu, so "new tab" becomes "new tab, running
-# something". This is the trigger that works over `herdr --remote`: a remote
-# client has no local plugin registry and no local server, so it can neither
-# resolve nor run a plugin action from a keypress, but events are raised and
-# handled entirely on the server.
 [[events]]
 on = "tab.created"
 command = ["sh", "-c", 'exec node "$HERDR_PLUGIN_ROOT/tab-event.js"']
-
-# ---------------------------------------------------------------------------
-# Keybindings
-#
-# These only apply when the client runs on the same machine as the server.
-# Driving a remote server, keys are read by the client and never reach these —
-# see the README.
-# ---------------------------------------------------------------------------
-
-[[keys.command]]
-key = "prefix+space"
-type = "plugin_action"
-command = "royal-lobster.spinup.picker"
-description = "spinup menu"
-
-[[keys.command]]
-key = "prefix+shift+s"
-type = "plugin_action"
-command = "royal-lobster.spinup.all"
-description = "spinup every tool"

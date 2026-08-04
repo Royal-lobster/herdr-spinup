@@ -1,56 +1,74 @@
 #!/usr/bin/env node
 "use strict";
 
-// tab.created hook: making a new tab opens the picker, so "new tab" becomes
-// "new tab, running something".
+// tab.created hook: run the menu in the new tab's own pane.
 //
-// This is the launcher. It needs no keybinding, which is what makes it work over
-// `herdr --remote`: a remote client has no local plugin registry and no local
-// server, so it can neither resolve nor run a plugin action from a keypress. Events
-// are raised and handled entirely on the server, so this path is unaffected.
+// The tool then replaces the menu in that same pane, so nothing else is created
+// and no existing tab is touched. `esc` chooses nothing and the shell returns to
+// its prompt.
 //
-// The only guard needed: the tool tabs this plugin opens are new tabs too, and
-// would otherwise re-trigger the picker.
+// This is also why the launcher works over `herdr --remote`: events are raised and
+// handled entirely on the server, unlike keybindings, which a remote client can
+// neither resolve nor run.
 
 const lib = require("./lib.js");
 
+const ROOT = process.env.HERDR_PLUGIN_ROOT || __dirname;
 
-function tabFromEvent() {
+function sleep(ms) {
+  const shared = new Int32Array(new SharedArrayBuffer(4));
+  Atomics.wait(shared, 0, 0, ms);
+}
+
+function newTabId() {
   try {
-    // Shape: {event:"tab_created", data:{type, tab:{tab_id, label, ...}}}
-    return JSON.parse(process.env.HERDR_PLUGIN_EVENT_JSON || "{}")?.data?.tab || null;
+    // Shape: {event:"tab_created", data:{type, tab:{tab_id, ...}}}
+    return JSON.parse(process.env.HERDR_PLUGIN_EVENT_JSON || "{}")?.data?.tab?.tab_id || "";
   } catch {
-    return null;
+    return "";
   }
 }
 
+function rootPaneOf(tabId) {
+  const panes = lib.herdr(["pane", "list"]).panes || [];
+  return panes.find((p) => p.tab_id === tabId) || null;
+}
+
 function main() {
-  if (lib.tabEventsSuppressed()) return;
+  const tabId = newTabId();
+  if (!tabId) return;
 
-  const tab = tabFromEvent();
-  // A tab already carrying a tool name is one of ours.
-  if (tab && lib.toolIds().includes((tab.label || "").trim())) return;
+  // `pane run` types into the pane's shell, so the pane has to exist and the shell
+  // has to have reached its prompt, or the line is lost.
+  let pane = null;
+  for (let i = 0; i < 10 && !pane; i++) {
+    pane = rootPaneOf(tabId);
+    if (!pane) sleep(150);
+  }
+  if (!pane) return;
+  sleep(250);
 
-  const ctx = lib.resolveContext();
-  const args = [
-    "plugin", "pane", "open",
-    "--plugin", lib.PLUGIN_ID,
-    "--entrypoint", "picker",
-    "--cwd", ctx.cwd,
-    "--focus",
-  ];
-  // Handed over explicitly: the picker is spawned by Herdr, not by this process.
-  // It closes this tab only if a tool is actually picked.
-  if (tab && tab.tab_id) args.push("--env", `SPINUP_TRIGGER_TAB=${tab.tab_id}`);
+  // The menu prints the chosen command to stdout and draws itself on /dev/tty, so
+  // the command substitution captures the choice without swallowing the UI.
+  // `exec` replaces the shell, which keeps herdr's process-name agent detection
+  // working exactly as if the tool had been launched by hand. Choosing nothing
+  // leaves CMD empty and the prompt simply returns.
+  //
+  // COLUMNS/LINES are passed explicitly because the menu's stdout is a pipe and
+  // so has no terminal size of its own.
+  const script =
+    `clear; CMD=$(COLUMNS=$(tput cols) LINES=$(tput lines) ` +
+    `node ${JSON.stringify(`${ROOT}/picker.js`)}); ` +
+    `[ -n "$CMD" ] && exec $CMD; clear`;
 
-  lib.herdr(args);
+  lib.herdr(["pane", "run", pane.pane_id, "sh", "-c", script]);
 }
 
 try {
   main();
 } catch (err) {
-  // Must never disrupt opening a tab — but a silent failure here is invisible:
-  // event hooks report only their exit code, and returning 0 reads as success.
+  // Must never disrupt opening a tab — but a silent failure is invisible here,
+  // since event hooks report only an exit code.
   try {
     require("node:fs").appendFileSync(
       `${lib.STATE_DIR}/tab-event-error.log`,
