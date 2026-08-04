@@ -8,6 +8,11 @@ const fs = require("node:fs");
 const ESC = "\x1b";
 const MENU_W = 40;
 
+// Dim is switched off with `22m` (normal intensity) rather than `0m`, so it can be
+// nested inside a row that is already in reverse video without clearing it.
+const DIM = `${ESC}[2m`;
+const DIM_OFF = `${ESC}[22m`;
+
 // The UI must not touch stdout — that carries the chosen command back to the shell.
 let ttyFd = null;
 try {
@@ -61,6 +66,8 @@ function shortcutFor(item, i) {
  * @param c Terminal columns.
  * @param r Terminal rows.
  * @returns `itemStart` is the index of the first tool row within `block`; `w` the block width.
+ *   A row's `text` is the plain form used for measuring; `styled`, when present, is the
+ *   same row with inline attributes and is what gets painted.
  */
 function compose({ items, logo, selected }, c, r) {
   const logoW = logo.length ? Math.max(...logo.map((l) => [...l].length)) : 0;
@@ -85,8 +92,20 @@ function compose({ items, logo, selected }, c, r) {
     const left = `${on ? "❯" : " "} ${shortcutFor(item, i) || " "}  ${item.label}`;
     const right = item.desc || "";
     const pad = Math.max(1, w - [...left].length - [...right].length - 1);
-    const text = ` ${left}${" ".repeat(pad)}${right}`;
-    block.push({ text: text.length > w ? text.slice(0, w) : text.padEnd(w), style: on ? "\x1b[7m" : "" });
+    // Split by code point, not UTF-16 unit, so a wide glyph in a label cannot
+    // shift the description out of the block.
+    const head = [...` ${left}${" ".repeat(pad)}`].slice(0, w);
+    const desc = [...right].slice(0, Math.max(0, w - head.length));
+    const tail = " ".repeat(Math.max(0, w - head.length - desc.length));
+    const plain = `${head.join("")}${desc.join("")}${tail}`;
+    block.push({
+      text: plain,
+      // The description is dimmed on its own so the label stays the brighter half
+      // of the row. Padding sits outside the dim span, which keeps the reverse
+      // video on a selected row an even block.
+      styled: desc.length ? `${head.join("")}${DIM}${desc.join("")}${DIM_OFF}${tail}` : plain,
+      style: on ? "\x1b[7m" : "",
+    });
   });
 
   block.push({ text: "" });
@@ -113,7 +132,7 @@ function paint(state) {
 
   let buf = `${ESC}[H`;
   for (let i = 0; i < top; i++) buf += `${ESC}[K\r\n`;
-  for (const row of block) buf += `${indent}${row.style || ""}${row.text}\x1b[0m${ESC}[K\r\n`;
+  for (const row of block) buf += `${indent}${row.style || ""}${row.styled || row.text}\x1b[0m${ESC}[K\r\n`;
   out(buf + `${ESC}[J`);
 
   return top + itemStart + 1;
